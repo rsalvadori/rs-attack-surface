@@ -24,11 +24,7 @@ COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install weasyprint
 
-# instalar nuclei templates
-RUN mkdir -p /root/nuclei-templates \
-    && nuclei -update-templates -ut -ud /root/nuclei-templates
+RUN mkdir -p /root/.nuclei-templates \
+    && nuclei -update-templates
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-
-
