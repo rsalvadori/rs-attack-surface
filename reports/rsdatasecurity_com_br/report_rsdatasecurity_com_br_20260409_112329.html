@@ -1,0 +1,270 @@
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>RS Attack Surface</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+    font-family: Arial;
+    background: #0b1220;
+    color: white;
+    margin: 0;
+    padding: 30px;
+}
+
+.container {
+    max-width: 1400px;
+    margin: auto;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.logo {
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.top-actions button {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    border: none;
+    padding: 10px 18px;
+    border-radius: 999px;
+    color: white;
+    cursor: pointer;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+}
+
+.card {
+    background: #111827;
+    border-radius: 14px;
+    padding: 20px;
+}
+
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.kpi {
+    background: #1f2937;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.kpi h2 {
+    margin: 0;
+}
+
+.table {
+    width: 100%;
+}
+
+.table div {
+    padding: 10px;
+    border-bottom: 1px solid #1f2937;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.critical { background:#991b1b; }
+.high { background:#dc2626; }
+.medium { background:#f59e0b; }
+.low { background:#3b82f6; }
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<!-- HEADER -->
+<div class="header">
+    <div class="logo">RS Data Security</div>
+    <div class="top-actions">
+        <button onclick="downloadPDF()">⬇ Baixar PDF</button>
+    </div>
+</div>
+
+<!-- MAIN GRID -->
+<div class="grid">
+
+<!-- LEFT -->
+<div>
+
+<div class="card">
+    <h2>Surface Attack Analysis</h2>
+    <p>Domínio: rsdatasecurity.com.br</p>
+</div>
+
+<div class="card">
+    <h3>Score Geral</h3>
+    <canvas id="scoreChart"></canvas>
+</div>
+
+<div class="card">
+    <h3>Vulnerabilidades</h3>
+    <div id="vulnContainer"></div>
+</div>
+
+<div class="card">
+    <h3>Plano de Ação</h3>
+    <div id="actionPlan"></div>
+</div>
+
+</div>
+
+<!-- RIGHT -->
+<div>
+
+<div class="card">
+    <h3>Risk Score</h3>
+    <h1 id="scoreValue"></h1>
+</div>
+
+<div class="card">
+    <h3>Top Riscos</h3>
+    <div id="topFindings"></div>
+</div>
+
+<div class="card">
+    <h3>Infraestrutura</h3>
+    <div id="infraContainer"></div>
+</div>
+
+<div class="card">
+    <h3>LGPD</h3>
+    <div id="lgpdContainer"></div>
+</div>
+
+</div>
+
+</div>
+
+<!-- KPI -->
+<div class="kpi-grid">
+
+<div class="kpi">
+    <h2 id="kpiVuln"></h2>
+    <small>Vulnerabilidades</small>
+</div>
+
+<div class="kpi">
+    <h2 id="kpiLgpd"></h2>
+    <small>Risco LGPD</small>
+</div>
+
+<div class="kpi">
+    <h2 id="kpiSub"></h2>
+    <small>Subdomínios</small>
+</div>
+
+<div class="kpi">
+    <h2 id="kpiTech"></h2>
+    <small>Tecnologias</small>
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+const data = {"target": "rsdatasecurity.com.br", "score": 65, "risk": "medium", "security_score": 50, "privacy_score": 100, "findings": [{"title": "HTTPX Scan Executado", "severity": "info", "impact": "Status 200 em https://rsdatasecurity.com.br", "recommendation": "Prosseguir com an\u00e1lise"}, {"title": "Missing HSTS", "severity": "medium", "impact": "O site n\u00e3o for\u00e7a HTTPS, permitindo ataques de intercepta\u00e7\u00e3o de tr\u00e1fego em redes inseguras (ex: Wi-Fi p\u00fablico).", "recommendation": "Implementar Strict-Transport-Security (HSTS) para garantir comunica\u00e7\u00e3o segura."}, {"title": "Missing CSP", "severity": "medium", "impact": "A aus\u00eancia de CSP permite execu\u00e7\u00e3o de scripts maliciosos (XSS), podendo comprometer sess\u00f5es e dados de usu\u00e1rios.", "recommendation": "Implementar Content-Security-Policy restritiva."}, {"title": "Missing X-Frame-Options", "severity": "medium", "impact": "A aplica\u00e7\u00e3o pode ser carregada em iframes maliciosos, permitindo ataques de clickjacking.", "recommendation": "Configurar X-Frame-Options ou frame-ancestors."}, {"title": "Missing X-Content-Type-Options", "severity": "low", "impact": "Interpreta\u00e7\u00e3o incorreta.", "recommendation": "Configurar nosniff."}, {"title": "Wix Detection", "severity": "info", "impact": "Evid\u00eancia identificada em https://rsdatasecurity.com.br/robots.txt", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "Detect Sentry Instance", "severity": "info", "impact": "Evid\u00eancia identificada em https://www.rsdatasecurity.com.br/", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "Aus\u00eancia de mecanismos de LGPD", "severity": "high", "impact": "O site n\u00e3o apresenta pol\u00edtica de privacidade, gest\u00e3o de cookies ou canal do titular.", "recommendation": "Implementar pol\u00edtica de privacidade, banner de cookies e canal de atendimento LGPD."}], "top_findings": [{"title": "Missing HSTS", "severity": "medium", "impact": "O site n\u00e3o for\u00e7a HTTPS, permitindo ataques de intercepta\u00e7\u00e3o de tr\u00e1fego em redes inseguras (ex: Wi-Fi p\u00fablico).", "recommendation": "Implementar Strict-Transport-Security (HSTS) para garantir comunica\u00e7\u00e3o segura."}, {"title": "Missing CSP", "severity": "medium", "impact": "A aus\u00eancia de CSP permite execu\u00e7\u00e3o de scripts maliciosos (XSS), podendo comprometer sess\u00f5es e dados de usu\u00e1rios.", "recommendation": "Implementar Content-Security-Policy restritiva."}, {"title": "Missing X-Frame-Options", "severity": "medium", "impact": "A aplica\u00e7\u00e3o pode ser carregada em iframes maliciosos, permitindo ataques de clickjacking.", "recommendation": "Configurar X-Frame-Options ou frame-ancestors."}], "infra": {"ips": ["185.230.63.107"], "dns": {"A": ["185.230.63.186", "185.230.63.171", "185.230.63.107"], "MX": ["mx.jk.locaweb.com.br.", "mx.b.locaweb.com.br.", "mx.core.locaweb.com.br.", "mx.a.locaweb.com.br."], "NS": ["ns10.wixdns.net.", "ns11.wixdns.net."]}, "services": ["HTTP", "HTTPS"], "geo": {"185.230.63.107": {"country": "United States", "region": "Virginia", "city": "Ashburn", "isp": "wix com inc", "org": "Wix Com Inc"}}}, "raw_httpx": {"timestamp": "2026-04-09T11:18:53.338909-03:00", "port": "443", "url": "https://rsdatasecurity.com.br", "input": "rsdatasecurity.com.br", "title": "Seguran\u00e7a da Informa\u00e7\u00e3o e LGPD | RS Data Security", "scheme": "https", "webserver": "Pepyaka", "content_type": "text/html", "method": "GET", "host": "rsdatasecurity.com.br", "host_ip": "185.230.63.171", "path": "/", "final_url": "https://www.rsdatasecurity.com.br/", "time": "1.586081041s", "chain_status_codes": [301, 200], "a": ["185.230.63.186", "185.230.63.171", "185.230.63.107"], "tech": ["Google Cloud", "Google Cloud CDN", "HSTS", "HTTP/3", "Lodash", "React", "Wix"], "words": 19930, "lines": 1943, "status_code": 200, "content_length": 1164380, "failed": false, "knowledgebase": {"pHash": 0}, "resolvers": ["[2804:14d:1:0:181:213:132:3]:53", "181.213.132.2:53"], "cpe": [{"product": "webp_server_go", "vendor": "webp", "cpe": "cpe:2.3:a:webp:webp_server_go:*:*:*:*:*:*:*:*"}, {"product": "jquery-bbq", "vendor": "jquery-bbq_project", "cpe": "cpe:2.3:a:jquery-bbq_project:jquery-bbq:*:*:*:*:*:*:*:*"}, {"product": "avideo", "vendor": "wwbn", "cpe": "cpe:2.3:a:wwbn:avideo:*:*:*:*:*:*:*:*"}]}};
+
+// PDF
+function downloadPDF() {
+    const url = window.location.href.replace(".html",".pdf");
+    window.open(url);
+}
+
+// SCORE
+document.getElementById("scoreValue").innerText = data.score;
+
+// CHART
+new Chart(document.getElementById('scoreChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Segurança','Privacidade'],
+        datasets: [{
+            data: [data.security_score, data.privacy_score]
+        }]
+    }
+});
+
+// TOP
+const topDiv = document.getElementById("topFindings");
+data.top_findings.forEach(f => {
+    topDiv.innerHTML += `<div>${f.title}</div>`;
+});
+
+// INFRA
+const infraDiv = document.getElementById("infraContainer");
+(data.infra?.ips || []).forEach(ip => {
+    infraDiv.innerHTML += `<div>${ip}</div>`;
+});
+
+// VULNS
+const vulnDiv = document.getElementById("vulnContainer");
+data.findings.forEach(f => {
+    vulnDiv.innerHTML += `
+        <div>
+            <strong>${f.title}</strong>
+            <span class="badge ${f.severity}">${f.severity}</span>
+        </div>
+    `;
+});
+
+// ACTION
+const actionDiv = document.getElementById("actionPlan");
+data.findings
+.filter(f => ["high","medium"].includes(f.severity))
+.forEach(f => {
+    actionDiv.innerHTML += `<div>${f.recommendation}</div>`;
+});
+
+// LGPD
+const lgpdDiv = document.getElementById("lgpdContainer");
+const lgpd = data.findings.filter(f =>
+    ["lgpd","privacidade","gdpr"].some(k => (f.title||"").toLowerCase().includes(k))
+);
+
+if(!lgpd.length){
+    lgpdDiv.innerHTML = "Alto risco regulatório";
+} else {
+    lgpd.forEach(f=> {
+        lgpdDiv.innerHTML += `<div>${f.title}</div>`;
+    });
+}
+
+// KPIs
+document.getElementById("kpiVuln").innerText = data.findings.length;
+document.getElementById("kpiLgpd").innerText = lgpd.length;
+document.getElementById("kpiSub").innerText = data.infra?.ips?.length || 0;
+document.getElementById("kpiTech").innerText = Object.keys(data.raw_httpx || {}).length;
+
+</script>
+
+</body>
+</html>

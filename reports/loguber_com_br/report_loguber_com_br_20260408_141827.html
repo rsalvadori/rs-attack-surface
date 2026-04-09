@@ -1,0 +1,268 @@
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>RS Attack Surface</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+    font-family: Arial;
+    background: #0f172a;
+    color: white;
+    margin: 0;
+    padding: 20px;
+}
+
+.card {
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+h1 {
+    margin-bottom: 20px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.score-box {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.score-circle {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.score-grade {
+    font-size: 26px;
+}
+
+.score-value {
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+td, th {
+    padding: 8px;
+    border-bottom: 1px solid #334155;
+}
+
+.action-block {
+    border-left: 4px solid #dc2626;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>RS Attack Surface - Dashboard</h1>
+
+<div class="card">
+    <div class="score-box">
+        <div class="score-circle">
+            <div class="score-grade" id="scoreGrade"></div>
+            <div class="score-value" id="scoreValue"></div>
+        </div>
+
+        <div>
+            <div><strong>Risco:</strong> <span id="riskLevel"></span></div>
+            <div><strong>Alvo:</strong> loguber.com.br</div>
+        </div>
+    </div>
+</div>
+
+<div class="grid">
+
+<div class="card">
+    <h3>Score Breakdown</h3>
+    <canvas id="scoreChart"></canvas>
+</div>
+
+<div class="card">
+    <h3>Severidade</h3>
+    <canvas id="severityChart"></canvas>
+</div>
+
+<div class="card">
+    <h3>Top Findings</h3>
+    <ul>
+        <li>Política de privacidade não identificada</li><li>Missing HSTS</li><li>Missing CSP</li>
+    </ul>
+</div>
+
+</div>
+
+<div class="card">
+    <h3>Infraestrutura</h3>
+    <div id="infraContainer"></div>
+</div>
+
+<div class="card">
+    <h3>Plano de Ação Prioritário</h3>
+    <div id="actionPlan"></div>
+</div>
+
+<div class="card">
+    <h3>Como melhorar seu score</h3>
+    <div id="scoreImprovement"></div>
+</div>
+
+<script>
+
+const data = {"target": "loguber.com.br", "score": 53, "risk": "high", "security_score": 50, "privacy_score": 60, "findings": [{"title": "HTTPX Scan Executado", "severity": "info", "impact": "Status 200 em https://loguber.com.br", "recommendation": "Prosseguir com an\u00e1lise"}, {"title": "Missing HSTS", "severity": "medium", "impact": "O site n\u00e3o for\u00e7a HTTPS, permitindo ataques de intercepta\u00e7\u00e3o de tr\u00e1fego em redes inseguras (ex: Wi-Fi p\u00fablico).", "recommendation": "Implementar Strict-Transport-Security (HSTS) para garantir comunica\u00e7\u00e3o segura."}, {"title": "Missing CSP", "severity": "medium", "impact": "A aus\u00eancia de CSP permite execu\u00e7\u00e3o de scripts maliciosos (XSS), podendo comprometer sess\u00f5es e dados de usu\u00e1rios.", "recommendation": "Implementar Content-Security-Policy restritiva."}, {"title": "Missing X-Frame-Options", "severity": "medium", "impact": "A aplica\u00e7\u00e3o pode ser carregada em iframes maliciosos, permitindo ataques de clickjacking.", "recommendation": "Configurar X-Frame-Options ou frame-ancestors."}, {"title": "Missing X-Content-Type-Options", "severity": "low", "impact": "Interpreta\u00e7\u00e3o incorreta.", "recommendation": "Configurar nosniff."}, {"title": "WAF Detection", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "WordPress Passive Detection - Plugins & Themes", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "Apache Detection", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "WordPress Passive Detection - Plugins & Themes", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "Switching Protocol Detection", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "WordPress Detect", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "Metatag CMS Detection", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "Wappalyzer Technology Detection", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "Wappalyzer Technology Detection", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "Wappalyzer Technology Detection", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "Wappalyzer Technology Detection", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "Wordpress Plugin Detection", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "Wordpress Plugin Detection", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "Wordpress Plugin Detection", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "Wordpress Plugin Detection", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "Wordpress Theme Detection", "severity": "info", "impact": "Evid\u00eancia identificada em https://loguber.com.br", "recommendation": "Validar tecnicamente e aplicar corre\u00e7\u00e3o ou hardening conforme aplic\u00e1vel."}, {"title": "Pol\u00edtica de privacidade n\u00e3o identificada", "severity": "high", "impact": "Aus\u00eancia de pol\u00edtica pode indicar n\u00e3o conformidade com LGPD.", "recommendation": "Disponibilizar pol\u00edtica de privacidade ou p\u00e1gina LGPD."}, {"title": "Aus\u00eancia de aviso de cookies", "severity": "medium", "impact": "Pode indicar n\u00e3o conformidade com requisitos de transpar\u00eancia.", "recommendation": "Implementar banner de cookies."}, {"title": "Encarregado (DPO) n\u00e3o identificado", "severity": "medium", "impact": "Pode indicar aus\u00eancia de canal formal ao titular.", "recommendation": "Informar canal do encarregado (DPO)."}], "top_findings": [{"title": "Pol\u00edtica de privacidade n\u00e3o identificada", "severity": "high", "impact": "Aus\u00eancia de pol\u00edtica pode indicar n\u00e3o conformidade com LGPD.", "recommendation": "Disponibilizar pol\u00edtica de privacidade ou p\u00e1gina LGPD."}, {"title": "Missing HSTS", "severity": "medium", "impact": "O site n\u00e3o for\u00e7a HTTPS, permitindo ataques de intercepta\u00e7\u00e3o de tr\u00e1fego em redes inseguras (ex: Wi-Fi p\u00fablico).", "recommendation": "Implementar Strict-Transport-Security (HSTS) para garantir comunica\u00e7\u00e3o segura."}, {"title": "Missing CSP", "severity": "medium", "impact": "A aus\u00eancia de CSP permite execu\u00e7\u00e3o de scripts maliciosos (XSS), podendo comprometer sess\u00f5es e dados de usu\u00e1rios.", "recommendation": "Implementar Content-Security-Policy restritiva."}], "infra": {"ips": ["162.241.63.45"], "dns": {"A": ["162.241.63.45"], "MX": ["loguber-com-br.mail.protection.outlook.com."], "NS": ["nspro105.hostgator.com.br.", "nspro104.hostgator.com.br."]}, "services": ["HTTP", "HTTPS", "SSH", "FTP", "SMTP"], "geo": {"162.241.63.45": {"country": "Brazil", "region": "S\u00e3o Paulo", "city": "Vinhedo", "isp": "Network Solutions, LLC", "org": "Unified Layer"}}}, "raw_httpx": {"timestamp": "2026-04-08T14:14:39.844296-03:00", "port": "443", "url": "https://loguber.com.br", "input": "loguber.com.br", "title": "Nova Home - Loguber", "scheme": "https", "webserver": "Apache", "content_type": "text/html", "method": "GET", "host": "loguber.com.br", "host_ip": "162.241.63.45", "path": "/", "time": "1.613514959s", "a": ["162.241.63.45"], "tech": ["Apache HTTP Server", "Contact Form 7:6.0.6", "Elementor:3.33.4", "Gravatar", "Instagram Feed for WordPress:6.9.1", "MySQL", "PHP", "Smash Balloon Instagram Feed", "WPMU DEV Smush:3.17.1", "WordPress:6.9.4", "Yoast SEO:27.2", "imagesLoaded:5.0.0", "jQuery", "jQuery Migrate:3.4.1"], "words": 6546, "lines": 1649, "status_code": 200, "content_length": 196375, "failed": false, "knowledgebase": {"pHash": 0}, "resolvers": ["[2804:14d:1:0:181:213:132:3]:53", "181.213.132.2:53"], "cpe": [{"product": "webp_server_go", "vendor": "webp", "cpe": "cpe:2.3:a:webp:webp_server_go:*:*:*:*:*:*:*:*"}, {"product": "website_builder", "vendor": "elementor", "cpe": "cpe:2.3:a:elementor:website_builder:*:*:*:*:*:*:*:*"}], "wordpress": {"plugins": ["instagram-feed", "contact-form-7", "elementor", "wp-smushit"], "themes": ["hello-elementor"]}}};
+
+// SCORE
+function getGrade(score) {
+    if (score >= 90) return "A";
+    if (score >= 80) return "B";
+    if (score >= 70) return "C";
+    if (score >= 60) return "D";
+    return "E";
+}
+
+document.getElementById("scoreValue").innerText = data.score;
+document.getElementById("scoreGrade").innerText = getGrade(data.score);
+document.getElementById("riskLevel").innerText = data.risk.toUpperCase();
+
+// INFRA
+function getFlag(country) {
+    const flags = {
+        "Brazil": "🇧🇷",
+        "United States": "🇺🇸",
+        "Germany": "🇩🇪",
+        "France": "🇫🇷",
+        "United Kingdom": "🇬🇧",
+        "Canada": "🇨🇦",
+        "Netherlands": "🇳🇱",
+        "Singapore": "🇸🇬",
+        "India": "🇮🇳",
+        "Australia": "🇦🇺",
+        "Spain": "🇪🇸",
+        "Italy": "🇮🇹",
+        "Portugal": "🇵🇹",
+        "Ireland": "🇮🇪",
+        "Japan": "🇯🇵",
+        "South Korea": "🇰🇷"
+    };
+
+    return flags[country] || "🌎";
+}
+
+const infraDiv = document.getElementById("infraContainer");
+
+if (data.infra && data.infra.ips) {
+    data.infra.ips.forEach(ip => {
+        const geo = data.infra.geo[ip] || {};
+
+        infraDiv.innerHTML += `
+            <div style="margin-bottom:10px;">
+                <strong>${ip}</strong><br>
+                ${getFlag(geo.country)} ${geo.country || "N/A"} - ${geo.city || ""}
+            </div>
+        `;
+    });
+}
+
+// GRÁFICOS
+new Chart(document.getElementById('scoreChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Segurança', 'Privacidade'],
+        datasets: [{
+            data: [50, 60]
+        }]
+    }
+});
+
+const counts = {
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0
+};
+
+data.findings.forEach(f => {
+    if (counts[f.severity] !== undefined) {
+        counts[f.severity]++;
+    }
+});
+
+new Chart(document.getElementById('severityChart'), {
+    type: 'bar',
+    data: {
+        labels: ['Critical','High','Medium','Low'],
+        datasets: [{
+            data: [
+                counts.critical,
+                counts.high,
+                counts.medium,
+                counts.low
+            ]
+        }]
+    }
+});
+
+// PLANO DE AÇÃO
+const actionDiv = document.getElementById("actionPlan");
+
+data.findings
+    .filter(f => ["high","medium"].includes(f.severity))
+    .forEach(f => {
+        actionDiv.innerHTML += `
+            <div class="action-block">
+                <strong>${f.title}</strong><br>
+                ${f.recommendation}
+            </div>
+        `;
+    });
+
+// MELHORIA DE SCORE
+const improveDiv = document.getElementById("scoreImprovement");
+
+data.findings.forEach(f => {
+    let impacto = "";
+
+    if (f.severity === "high") impacto = "Impacto direto no score";
+    else if (f.severity === "medium") impacto = "Melhoria relevante";
+    else return;
+
+    improveDiv.innerHTML += `
+        <div style="margin-bottom:10px;">
+            <strong>${f.title}</strong><br>
+            ${f.recommendation}<br>
+            <small>${impacto}</small>
+        </div>
+    `;
+});
+
+</script>
+
+</body>
+</html>
