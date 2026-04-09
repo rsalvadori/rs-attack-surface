@@ -21,8 +21,6 @@ def run_nuclei(domain: str) -> list:
         "-rl", "5",
         "-timeout", "10",
         "-retries", "1",
-        "-j",
-        "-silent"
     ]
 
     print("TARGET NUCLEI:", target)
@@ -40,7 +38,7 @@ def run_nuclei(domain: str) -> list:
         stdout = (result.stdout or "").strip()
         stderr = (result.stderr or "").strip()
 
-        print("STDOUT RAW:", stdout[:500])
+        print("STDOUT FULL:", stdout)
 
         if stderr:
             print("[NUCLEI STDERR]", stderr)
