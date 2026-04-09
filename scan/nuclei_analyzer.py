@@ -17,6 +17,7 @@ def run_nuclei(domain: str) -> list:
         NUCLEI_PATH,
         "-u", target,
         "-tags", "tech,misconfig,exposure",
+        "-severity", "critical,high,medium",
         "-rl", "5",
         "-timeout", "10",
         "-retries", "1",
