@@ -17,8 +17,8 @@ def run_nuclei(domain: str) -> list:
         NUCLEI_PATH,
         "-u", target,
         "-t", "/root/.nuclei-templates/http",
-        "-t", "/root/.nuclei-templates/cves",
         "-t", "/root/.nuclei-templates/misconfiguration",
+        "-tags", "misconfig,exposure",
         "-severity", "critical,high,medium",
         "-rl", "5",
         "-timeout", "10",
@@ -34,7 +34,7 @@ def run_nuclei(domain: str) -> list:
             command,
             capture_output=True,
             text=True,
-            timeout=300
+            timeout=120
         )
 
         stdout = (result.stdout or "").strip()
