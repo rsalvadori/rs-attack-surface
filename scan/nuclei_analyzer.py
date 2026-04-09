@@ -16,7 +16,9 @@ def run_nuclei(domain: str) -> list:
     command = [
         NUCLEI_PATH,
         "-u", target,
-        "-t", "/root/.nuclei-templates",
+        "-t", "/root/.nuclei-templates/http",
+        "-t", "/root/.nuclei-templates/cves",
+        "-t", "/root/.nuclei-templates/misconfiguration",
         "-severity", "critical,high,medium",
         "-rl", "5",
         "-timeout", "10",
