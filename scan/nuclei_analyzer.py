@@ -1,5 +1,6 @@
 import subprocess
 import json
+import shutil
 
 
 def run_nuclei(domain: str) -> list:
@@ -9,8 +10,11 @@ def run_nuclei(domain: str) -> list:
 
     target = f"https://{domain}"
 
+    # 🔥 PATH DINÂMICO (funciona local + Railway + Docker)
+    NUCLEI_PATH = shutil.which("nuclei") or "nuclei"
+
     command = [
-        "/opt/homebrew/bin/nuclei",  # 🔥 CAMINHO FIXO CORRETO
+        NUCLEI_PATH,
         "-u", target,
         "-tags", "tech",
         "-rl", "5",
@@ -21,6 +25,7 @@ def run_nuclei(domain: str) -> list:
     ]
 
     print("TARGET NUCLEI:", target)
+    print("NUCLEI PATH:", NUCLEI_PATH)
     print("COMANDO NUCLEI:", " ".join(command))
 
     try:
