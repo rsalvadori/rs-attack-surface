@@ -34,7 +34,7 @@ app.mount("/reports", StaticFiles(directory="reports"), name="reports")
 
 @app.get("/")
 def serve_dashboard():
-    return FileResponse("frontend/dashboard.html")
+    return FileResponse("frontend/attack-surface.html")
 
 
 # =========================
