@@ -16,7 +16,6 @@ def run_nuclei(domain: str) -> list:
     command = [
         NUCLEI_PATH,
         "-u", target,
-        "-tags", "tech,misconfig,exposure",
         "-severity", "critical,high,medium",
         "-rl", "5",
         "-timeout", "10",
