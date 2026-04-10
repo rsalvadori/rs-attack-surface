@@ -307,19 +307,14 @@ document.getElementById("scanForm").addEventListener("submit", async function(e)
     startLoading();
 
     try {
-     const response = await fetch(`${API_BASE}/scan-report`, {
-         method: "POST",
-         headers: {
-             "Content-Type": "application/json"
-         },
-         body: JSON.stringify({
-             domain: fields.domain.value,
-             company: fields.company.value,
-             client: fields.client.value,
-             phone: fields.phone.value,
-             email: fields.email.value
-         })
-     });
+        const response = await fetch(`${API_BASE}/scan-report`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ domain: fields.domain.value })
+        });
+
         if (!response.ok) throw new Error();
 
         const result = await response.json();
