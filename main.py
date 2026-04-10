@@ -36,7 +36,7 @@ def serve_dashboard():
 
 
 # =========================
-# MODELO (INALTERADO)
+# MODELO
 # =========================
 class ScanRequest(BaseModel):
     domain: str = Field(..., example="example.com")
@@ -93,14 +93,21 @@ def calculate_scores(findings: list[dict]):
         ])
 
         if is_privacy:
-            if severity == "high": privacy_score -= 20
-            elif severity == "medium": privacy_score -= 10
-            elif severity == "low": privacy_score -= 5
+            if severity == "high":
+                privacy_score -= 20
+            elif severity == "medium":
+                privacy_score -= 10
+            elif severity == "low":
+                privacy_score -= 5
         else:
-            if severity == "critical": security_score -= 30
-            elif severity == "high": security_score -= 25
-            elif severity == "medium": security_score -= 15
-            elif severity == "low": security_score -= 5
+            if severity == "critical":
+                security_score -= 30
+            elif severity == "high":
+                security_score -= 25
+            elif severity == "medium":
+                security_score -= 15
+            elif severity == "low":
+                security_score -= 5
 
     security_score = max(security_score, 0)
     privacy_score = max(privacy_score, 0)
@@ -118,13 +125,13 @@ def calculate_scores(findings: list[dict]):
 
 
 def get_top_findings(findings, limit=3):
-    severity_order = {"critical":4,"high":3,"medium":2,"low":1,"info":0}
+    severity_order = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}
 
     filtered = [f for f in findings if f.get("severity") != "info"]
 
     return sorted(
         filtered,
-        key=lambda x: severity_order.get(x.get("severity","info"),0),
+        key=lambda x: severity_order.get(x.get("severity", "info"), 0),
         reverse=True
     )[:limit]
 
@@ -138,36 +145,47 @@ def execute_scan(domain: str):
 
     try:
         httpx_data = run_httpx(domain)
-    except:
+    except Exception:
         httpx_data = {}
 
     headers_raw = str(httpx_data).lower()
 
     if "strict-transport-security" not in headers_raw:
-        findings.append({"title":"Missing HSTS","severity":"medium"})
+        findings.append({"title": "Missing HSTS", "severity": "medium"})
 
     if "content-security-policy" not in headers_raw:
-        findings.append({"title":"Missing CSP","severity":"medium"})
+        findings.append({"title": "Missing CSP", "severity": "medium"})
 
     if "x-frame-options" not in headers_raw:
-        findings.append({"title":"Missing X-Frame-Options","severity":"medium"})
+        findings.append({"title": "Missing X-Frame-Options", "severity": "medium"})
 
     if "x-content-type-options" not in headers_raw:
-        findings.append({"title":"Missing X-Content-Type-Options","severity":"low"})
+        findings.append({"title": "Missing X-Content-Type-Options", "severity": "low"})
 
-    try: findings.extend(analyze_tls(domain) or [])
-    except: pass
+    try:
+        findings.extend(analyze_tls(domain) or [])
+    except Exception:
+        pass
 
-    try: findings.extend(analyze_nuclei(domain) or [])
-    except: pass
+    try:
+        findings.extend(analyze_nuclei(domain) or [])
+    except Exception:
+        pass
 
-    try: findings.extend(analyze_lgpd(domain) or [])
-    except: pass
+    try:
+        findings.extend(analyze_lgpd(domain) or [])
+    except Exception:
+        pass
 
-    try: infra_data = analyze_infrastructure(domain)
-    except: infra_data = {}
+    try:
+        infra_data = analyze_infrastructure(domain)
+    except Exception:
+        infra_data = {}
 
-    findings = [enrich_finding(f) for f in findings]
+    try:
+        findings = [enrich_finding(f) for f in findings]
+    except Exception:
+        pass
 
     score, risk, sec, priv = calculate_scores(findings)
 
@@ -179,7 +197,8 @@ def execute_scan(domain: str):
         "privacy_score": priv,
         "findings": findings,
         "top_findings": get_top_findings(findings),
-        "infra": infra_data
+        "infra": infra_data,
+        "raw_httpx": httpx_data
     }
 
 
@@ -192,10 +211,10 @@ async def scan_report(request: Request):
     body = await request.json()
 
     domain_input = body.get("domain")
-    company = body.get("company","-")
-    client = body.get("client","-")
-    phone = body.get("phone","-")
-    email = body.get("email","-")
+    company = body.get("company", "-")
+    client = body.get("client", "-")
+    phone = body.get("phone", "-")
+    email = body.get("email", "-")
 
     domain = normalize_domain(domain_input)
 
@@ -210,29 +229,59 @@ async def scan_report(request: Request):
     client_dir = os.path.join("reports", safe_domain)
     os.makedirs(client_dir, exist_ok=True)
 
-    pdf_path = os.path.join(client_dir, f"report_{safe_domain}_{timestamp}.pdf")
+    pdf_name = f"report_{safe_domain}_{timestamp}.pdf"
+    pdf_path = os.path.join(client_dir, pdf_name)
     generate_pdf_report(result, pdf_path)
 
-    html_path = os.path.join(client_dir, f"report_{safe_domain}_{timestamp}.html")
-    with open(html_path,"w",encoding="utf-8") as f:
+    html_name = f"report_{safe_domain}_{timestamp}.html"
+    html_path = os.path.join(client_dir, html_name)
+
+    with open(html_path, "w", encoding="utf-8") as f:
         f.write(generate_html_dashboard(result))
 
     try:
         send_email(
             to_email="reportsattacksurface@rsdatasecurity.com.br",
-            subject="Novo Lead",
-            body=f"{company} | {client} | {email} | {phone} | {domain}",
+            subject="Novo Lead - RS Attack Surface",
+            body=f"""
+Empresa: {company}
+Responsável: {client}
+Email: {email}
+Telefone: {phone}
+
+Domínio: {domain}
+Score: {result.get("score")}
+Risco: {result.get("risk")}
+""",
             attachment_path=pdf_path
         )
 
-        if email != "-":
+        if email and email != "-":
             send_email(
                 to_email=email,
-                subject="Seu relatório",
-                body="Segue relatório em anexo",
+                subject="Relatório de Segurança do seu ambiente",
+                body=f"""
+Olá {client},
+
+Realizamos uma análise do domínio {domain}.
+
+Identificamos possíveis pontos de atenção que podem impactar a segurança e a conformidade do ambiente.
+
+O relatório completo segue em anexo.
+
+Caso queira aprofundar a análise ou evoluir a proteção do seu ambiente, podemos te apoiar.
+
+RS Data Security
+""",
                 attachment_path=pdf_path
             )
-    except Exception as e:
-        print(e)
 
-    return {"html_url": f"/reports/{safe_domain}/{os.path.basename(html_path)}"}
+    except Exception as e:
+        print("EMAIL ERROR:", str(e))
+
+    return {
+        "html_url": f"/reports/{safe_domain}/{html_name}",
+        "pdf_url": f"/reports/{safe_domain}/{pdf_name}",
+        "score": result.get("score"),
+        "risk": result.get("risk")
+    }
