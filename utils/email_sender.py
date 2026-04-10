@@ -1,4 +1,4 @@
-# utils/email_sender.py
+# utils/email_sender.py (CORRIGIDO)
 
 import requests
 import base64
@@ -15,7 +15,7 @@ def send_email(to_email, subject, body, attachment_path=None):
     }
 
     payload = {
-        "from": "RS Attack Surface <reportsattacksurface@rsdatasecurity.com.br>",,
+        "from": "RS Attack Surface <reportsattacksurface@rsdatasecurity.com.br>",
         "to": ["comercial@rsdatasecurity.com.br"],
         "subject": subject,
         "text": body
