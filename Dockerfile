@@ -42,6 +42,8 @@ COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install weasyprint
 
+ENV NUCLEI_TEMPLATES_DIR=/root/nuclei-templates
+
 # =========================
 # START
 # =========================

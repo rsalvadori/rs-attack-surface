@@ -12,10 +12,11 @@ def run_nuclei(domain: str) -> list:
         NUCLEI_PATH,
         "-u", target,
         "-tags", "misconfig,exposure",
-        "-templates", "/root/nuclei-templates",
+        "-templates", "/root/.nuclei-templates",
         "-severity", "medium,high",
         "-rl", "10",
         "-timeout", "10",
+        "-duc",
         "-j"
     ]
 
@@ -44,7 +45,6 @@ def run_nuclei(domain: str) -> list:
     print("STDOUT:", stdout[:500])
     print("STDERR:", stderr[:500])
 
-    # 🚨 ERRO REAL DO NUCLEI
     if process.returncode != 0:
         return [{
             "title": "Erro na execução do Nuclei",
