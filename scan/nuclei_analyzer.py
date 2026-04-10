@@ -13,8 +13,8 @@ def run_nuclei(domain: str) -> list:
         "-u", target,
         "-tags", "misconfig,exposure",
         "-severity", "critical,high,medium",
-        "-rl", "5",
-        "-timeout", "5",
+        "-rl", "10",
+        "-timeout", "10",
         "-j"
     ]
 
@@ -30,7 +30,7 @@ def run_nuclei(domain: str) -> list:
     )
 
     try:
-        stdout, stderr = process.communicate(timeout=60)
+        stdout, stderr = process.communicate(timeout=120)
     except subprocess.TimeoutExpired:
         process.kill()
         stdout, stderr = process.communicate()
