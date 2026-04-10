@@ -11,12 +11,21 @@ def run_nuclei(domain: str) -> list:
     command = [
         NUCLEI_PATH,
         "-u", target,
-        "-tags", "misconfig,exposure",
-        "-templates", "/root/.nuclei-templates",
-        "-severity", "critical,medium,high",
-        "-rl", "10",
+
+    # 🔥 LIMITADO (ESSENCIAL)
+        "-templates", "/root/.nuclei-templates/http/",
+        "-tags", "cve,exposure",
+
+    # 🔒 CONTROLE
+        "-rl", "2",
+        "-c", "5",
+        "-bs", "5",
         "-timeout", "10",
-        "-duc",
+        "-retries", "1",
+
+    # OUTPUT
+        "-silent",
+        "-nc",
         "-j"
     ]
 
