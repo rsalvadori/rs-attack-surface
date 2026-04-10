@@ -16,7 +16,6 @@ def generate_html_dashboard(scan_result: dict) -> str:
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-
 body {{
     font-family: Arial;
     background: #0b1220;
@@ -102,20 +101,16 @@ canvas {{
     padding: 10px;
     margin-bottom: 10px;
 }}
-
 </style>
-
 </head>
 
 <body>
-
 <div class="container">
 
-<!-- HEADER -->
 <div class="header">
     <div class="title">RS Attack Surface</div>
 
-    <button onclick="downloadPDF()" 
+    <button onclick="downloadPDF()"
         style="
             background: linear-gradient(135deg, #22c55e, #16a34a);
             border: none;
@@ -130,10 +125,8 @@ canvas {{
     </button>
 </div>
 
-<!-- SCORE -->
 <div class="card">
     <div class="score-box">
-
         <div class="score-circle" id="scoreCircle">
             <div id="scoreGrade"></div>
             <div id="scoreValue"></div>
@@ -143,106 +136,89 @@ canvas {{
             <div><strong>Risco:</strong> <span id="riskLevel"></span></div>
             <div><strong>Alvo:</strong> {target}</div>
         </div>
-
     </div>
 </div>
 
-<!-- KPI CARDS (ADICIONADO) -->
 <div class="kpis">
+    <div class="kpi">
+        <h2 id="kpiVuln"></h2>
+        <small>Vulnerabilidades</small>
+    </div>
 
-<div class="kpi">
-    <h2 id="kpiVuln"></h2>
-    <small>Vulnerabilidades</small>
+    <div class="kpi">
+        <h2 id="kpiLgpd"></h2>
+        <small>Risco LGPD</small>
+    </div>
+
+    <div class="kpi">
+        <h2 id="kpiInfra"></h2>
+        <small>IPs Expostos</small>
+    </div>
+
+    <div class="kpi">
+        <h2 id="kpiScore"></h2>
+        <small>Score</small>
+    </div>
 </div>
 
-<div class="kpi">
-    <h2 id="kpiLgpd"></h2>
-    <small>Risco LGPD</small>
-</div>
-
-<div class="kpi">
-    <h2 id="kpiInfra"></h2>
-    <small>IPs Expostos</small>
-</div>
-
-<div class="kpi">
-    <h2 id="kpiScore"></h2>
-    <small>Score</small>
-</div>
-
-</div>
-
-<!-- RESUMO (mantido) -->
 <div class="card">
     <h3>Resumo Executivo</h3>
     <div id="executiveSummary"></div>
 </div>
 
-<!-- TOP GRID -->
 <div class="grid">
+    <div class="card">
+        <h3>Score</h3>
+        <canvas id="scoreChart"></canvas>
+    </div>
 
-<div class="card">
-    <h3>Score</h3>
-    <canvas id="scoreChart"></canvas>
+    <div class="card">
+        <h3>Severidade</h3>
+        <canvas id="severityChart"></canvas>
+    </div>
+
+    <div class="card">
+        <h3>Top Riscos</h3>
+        <ul id="topFindings"></ul>
+    </div>
 </div>
 
-<div class="card">
-    <h3>Severidade</h3>
-    <canvas id="severityChart"></canvas>
-</div>
-
-<div class="card">
-    <h3>Top Riscos</h3>
-    <ul id="topFindings"></ul>
-</div>
-
-</div>
-
-<!-- MAIN SPLIT -->
 <div class="grid-main">
+    <div>
+        <div class="card">
+            <h3>Infraestrutura</h3>
+            <div id="infraContainer"></div>
+        </div>
 
-<div>
+        <div class="card">
+            <h3>Vulnerabilidades</h3>
+            <div id="vulnContainer"></div>
+        </div>
 
-<div class="card">
-    <h3>Infraestrutura</h3>
-    <div id="infraContainer"></div>
-</div>
+        <div class="card">
+            <h3>Plano de Ação</h3>
+            <div id="actionPlan"></div>
+        </div>
+    </div>
 
-<div class="card">
-    <h3>Vulnerabilidades</h3>
-    <div id="vulnContainer"></div>
-</div>
+    <div>
+        <div class="card">
+            <h3>LGPD / Risco Regulatório</h3>
+            <div id="lgpdContainer"></div>
+        </div>
 
-<div class="card">
-    <h3>Plano de Ação</h3>
-    <div id="actionPlan"></div>
-</div>
-
-</div>
-
-<div>
-
-<div class="card">
-    <h3>LGPD / Risco Regulatório</h3>
-    <div id="lgpdContainer"></div>
-</div>
-
-<div class="card">
-    <h3>Como melhorar o score</h3>
-    <div id="scoreImprovement"></div>
-</div>
-
-</div>
-
+        <div class="card">
+            <h3>Como melhorar o score</h3>
+            <div id="scoreImprovement"></div>
+        </div>
+    </div>
 </div>
 
 </div>
 
 <script>
-
 const data = {json_data};
 
-// SCORE
 function getGrade(score) {{
     if (score >= 90) return "A";
     if (score >= 80) return "B";
@@ -257,26 +233,46 @@ function getColor(score) {{
     return "#dc2626";
 }}
 
-// PDF
 function downloadPDF() {{
     const pdfUrl = window.location.href.replace(".html", ".pdf");
     window.open(pdfUrl);
 }}
 
+// 🔥 Regra única para identificar LGPD/privacidade
+function isLgpdFinding(f) {{
+    const text = `${{f.title || ""}} ${{f.impact || ""}} ${{f.recommendation || ""}}`.toLowerCase();
+
+    return [
+        "lgpd",
+        "privacidade",
+        "privacy",
+        "cookie",
+        "cookies",
+        "gdpr",
+        "consent",
+        "encarregado",
+        "dpo",
+        "titular",
+        "política de privacidade",
+        "aviso de cookies"
+    ].some(k => text.includes(k));
+}}
+
+const lgpdFindings = data.findings.filter(isLgpdFinding);
+
+// SCORE
 document.getElementById("scoreValue").innerText = data.score;
 document.getElementById("scoreGrade").innerText = getGrade(data.score);
-document.getElementById("riskLevel").innerText = data.risk.toUpperCase();
+document.getElementById("riskLevel").innerText = (data.risk || "").toUpperCase();
 document.getElementById("scoreCircle").style.background = getColor(data.score);
 
 // KPIs
 document.getElementById("kpiVuln").innerText = data.findings.length;
-document.getElementById("kpiLgpd").innerText =
-data.findings.filter(f => (f.title || "").toLowerCase().includes("lgpd")).length;
-
+document.getElementById("kpiLgpd").innerText = lgpdFindings.length;
 document.getElementById("kpiInfra").innerText = data.infra?.ips?.length || 0;
 document.getElementById("kpiScore").innerText = data.score;
 
-// RESUMO (mantido)
+// RESUMO
 let summary = "";
 
 if (data.score < 60)
@@ -286,25 +282,24 @@ else if (data.score < 80)
 else
     summary += "Ambiente com boa postura de segurança. ";
 
-if (data.findings.some(f => f.severity === "high"))
+if (data.findings.some(f => ["high", "critical"].includes(f.severity)))
     summary += "Existem vulnerabilidades críticas que exigem ação imediata. ";
 
-if (!data.findings.some(f => (f.title || "").toLowerCase().includes("lgpd")))
-    summary += "Ausência de controles LGPD pode gerar risco regulatório.";
+if (lgpdFindings.length > 0)
+    summary += "Existem achados de privacidade/LGPD com potencial risco regulatório. ";
 
-document.getElementById("executiveSummary").innerText = summary;
+document.getElementById("executiveSummary").innerText = summary.trim();
 
 // TOP
 const topList = document.getElementById("topFindings");
-data.top_findings.forEach(f => {{
+(data.top_findings || []).forEach(f => {{
     topList.innerHTML += `<li>${{f.title}}</li>`;
 }});
 
 // INFRA
 const infraDiv = document.getElementById("infraContainer");
-
 (data.infra?.ips || []).forEach(ip => {{
-    const geo = data.infra.geo[ip] || {{}};
+    const geo = data.infra?.geo?.[ip] || {{}};
 
     infraDiv.innerHTML += `
         <div style="margin-bottom:10px;">
@@ -315,12 +310,11 @@ const infraDiv = document.getElementById("infraContainer");
     `;
 }});
 
-// VULNS (mantido)
+// VULNS
 const vulnDiv = document.getElementById("vulnContainer");
-
-data.findings.forEach(f => {{
+(data.findings || []).forEach(f => {{
     let border = "#334155";
-    if (f.severity === "high") border = "#dc2626";
+    if (f.severity === "critical" || f.severity === "high") border = "#dc2626";
     else if (f.severity === "medium") border = "#f59e0b";
 
     vulnDiv.innerHTML += `
@@ -332,47 +326,40 @@ data.findings.forEach(f => {{
     `;
 }});
 
-// LGPD (mantido)
+// LGPD
 const lgpdDiv = document.getElementById("lgpdContainer");
 
-const lgpd = data.findings.filter(f =>
-    ["lgpd","privacidade","cookie","gdpr","consent","encarregado"]
-    .some(k => (f.title || "").toLowerCase().includes(k))
-);
-
-if (!lgpd.length) {{
+if (!lgpdFindings.length) {{
     lgpdDiv.innerHTML = `
         <div class="action-block">
-            <strong>Ausência de controles LGPD</strong><br>
-            Exposição regulatória relevante.
+            <strong>Sem achados específicos de LGPD</strong><br>
+            Nenhum indicador regulatório relevante foi identificado neste relatório.
         </div>
     `;
 }} else {{
-    lgpd.forEach(f => {{
+    lgpdFindings.forEach(f => {{
         lgpdDiv.innerHTML += `
             <div class="action-block">
                 <strong>${{f.title}}</strong><br>
-                ${{f.recommendation}}
+                ${{f.recommendation || ""}}
             </div>
         `;
     }});
 }}
 
-// ACTION (mantido)
+// ACTION
 const actionDiv = document.getElementById("actionPlan");
+(data.findings || [])
+    .filter(f => ["high", "medium", "critical"].includes(f.severity))
+    .forEach(f => {{
+        actionDiv.innerHTML += `<div class="action-block">${{f.recommendation || ""}}</div>`;
+    }});
 
-data.findings
-.filter(f => ["high","medium"].includes(f.severity))
-.forEach(f => {{
-    actionDiv.innerHTML += `<div class="action-block">${{f.recommendation}}</div>`;
-}});
-
-// MELHORIA (mantido)
+// MELHORIA
 const improveDiv = document.getElementById("scoreImprovement");
-
-data.findings.forEach(f => {{
-    if (["high","medium"].includes(f.severity)) {{
-        improveDiv.innerHTML += `<div>${{f.title}} → ${{f.recommendation}}</div>`;
+(data.findings || []).forEach(f => {{
+    if (["high", "medium", "critical"].includes(f.severity)) {{
+        improveDiv.innerHTML += `<div>${{f.title}} → ${{f.recommendation || ""}}</div>`;
     }}
 }});
 
@@ -387,28 +374,26 @@ new Chart(document.getElementById('scoreChart'), {{
     }}
 }});
 
-const counts = {{critical:0, high:0, medium:0, low:0}};
-
-data.findings.forEach(f => {{
-    if (counts[f.severity] !== undefined)
-        counts[f.severity]++;
+const counts = {{critical:0, high:0, medium:0, low:0, info:0}};
+(data.findings || []).forEach(f => {{
+    if (counts[f.severity] !== undefined) counts[f.severity]++;
 }});
 
 new Chart(document.getElementById('severityChart'), {{
     type: 'doughnut',
     data: {{
-        labels: ['Critical','High','Medium','Low'],
+        labels: ['Critical','High','Medium','Low','Info'],
         datasets: [{{
             data: [
                 counts.critical,
                 counts.high,
                 counts.medium,
-                counts.low
+                counts.low,
+                counts.info
             ]
         }}]
     }}
 }});
-
 </script>
 
 </body>

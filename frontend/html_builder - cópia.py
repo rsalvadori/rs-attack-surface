@@ -16,18 +16,36 @@ def generate_html_dashboard(scan_result: dict) -> str:
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
+
 body {{
     font-family: Arial;
-    background: #0f172a;
+    background: #0b1220;
     color: white;
     margin: 0;
-    padding: 20px;
+    padding: 30px;
+}}
+
+.container {{
+    max-width: 1400px;
+    margin: auto;
+}}
+
+.header {{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:30px;
+}}
+
+.title {{
+    font-size:22px;
+    font-weight:bold;
 }}
 
 .card {{
-    background: #1e293b;
+    background: #111827;
     padding: 20px;
-    border-radius: 12px;
+    border-radius: 14px;
     margin-bottom: 20px;
 }}
 
@@ -37,6 +55,12 @@ body {{
     gap: 20px;
 }}
 
+.grid-main {{
+    display:grid;
+    grid-template-columns: 2fr 1fr;
+    gap:20px;
+}}
+
 .score-box {{
     display: flex;
     align-items: center;
@@ -44,14 +68,33 @@ body {{
 }}
 
 .score-circle {{
-    width: 100px;
-    height: 100px;
+    width: 110px;
+    height: 110px;
     border-radius: 50%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    font-weight:bold;
+    font-size:22px;
+}}
+
+.kpis {{
+    display:grid;
+    grid-template-columns: repeat(4,1fr);
+    gap:15px;
+}}
+
+.kpi {{
+    background:#1f2937;
+    padding:15px;
+    border-radius:10px;
+    text-align:center;
+}}
+
+canvas {{
+    max-width:220px;
+    margin:auto;
 }}
 
 .action-block {{
@@ -59,15 +102,19 @@ body {{
     padding: 10px;
     margin-bottom: 10px;
 }}
+
 </style>
 
 </head>
 
 <body>
 
-<h1>RS Attack Surface - Dashboard</h1>
+<div class="container">
 
-<div style="display:flex; justify-content:flex-end; margin-bottom:20px;">
+<!-- HEADER -->
+<div class="header">
+    <div class="title">RS Attack Surface</div>
+
     <button onclick="downloadPDF()" 
         style="
             background: linear-gradient(135deg, #22c55e, #16a34a);
@@ -78,19 +125,15 @@ body {{
             cursor: pointer;
             font-weight: 600;
             font-size: 13px;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.25);
-            transition: all 0.2s ease;
-        "
-        onmouseover="this.style.transform='scale(1.05)'"
-        onmouseout="this.style.transform='scale(1)'"
-    >
-        ⬇ Baixar Relatório PDF
+        ">
+        ⬇ Baixar PDF
     </button>
 </div>
 
-
+<!-- SCORE -->
 <div class="card">
     <div class="score-box">
+
         <div class="score-circle" id="scoreCircle">
             <div id="scoreGrade"></div>
             <div id="scoreValue"></div>
@@ -100,15 +143,44 @@ body {{
             <div><strong>Risco:</strong> <span id="riskLevel"></span></div>
             <div><strong>Alvo:</strong> {target}</div>
         </div>
+
     </div>
 </div>
 
+<!-- KPI CARDS (ADICIONADO) -->
+<div class="kpis">
+
+<div class="kpi">
+    <h2 id="kpiVuln"></h2>
+    <small>Vulnerabilidades</small>
+</div>
+
+<div class="kpi">
+    <h2 id="kpiLgpd"></h2>
+    <small>Risco LGPD</small>
+</div>
+
+<div class="kpi">
+    <h2 id="kpiInfra"></h2>
+    <small>IPs Expostos</small>
+</div>
+
+<div class="kpi">
+    <h2 id="kpiScore"></h2>
+    <small>Score</small>
+</div>
+
+</div>
+
+<!-- RESUMO (mantido) -->
 <div class="card">
     <h3>Resumo Executivo</h3>
     <div id="executiveSummary"></div>
 </div>
 
+<!-- TOP GRID -->
 <div class="grid">
+
 <div class="card">
     <h3>Score</h3>
     <canvas id="scoreChart"></canvas>
@@ -123,7 +195,13 @@ body {{
     <h3>Top Riscos</h3>
     <ul id="topFindings"></ul>
 </div>
+
 </div>
+
+<!-- MAIN SPLIT -->
+<div class="grid-main">
+
+<div>
 
 <div class="card">
     <h3>Infraestrutura</h3>
@@ -136,18 +214,28 @@ body {{
 </div>
 
 <div class="card">
+    <h3>Plano de Ação</h3>
+    <div id="actionPlan"></div>
+</div>
+
+</div>
+
+<div>
+
+<div class="card">
     <h3>LGPD / Risco Regulatório</h3>
     <div id="lgpdContainer"></div>
 </div>
 
 <div class="card">
-    <h3>Plano de Ação</h3>
-    <div id="actionPlan"></div>
-</div>
-
-<div class="card">
     <h3>Como melhorar o score</h3>
     <div id="scoreImprovement"></div>
+</div>
+
+</div>
+
+</div>
+
 </div>
 
 <script>
@@ -163,17 +251,16 @@ function getGrade(score) {{
     return "E";
 }}
 
-// ===== DOWNLOAD PDF =====
-function downloadPDF() {{
-    const currentUrl = window.location.href;
-    const pdfUrl = currentUrl.replace(".html", ".pdf");
-    window.open(pdfUrl, "_blank");
-}}
-
 function getColor(score) {{
     if (score >= 80) return "#16a34a";
     if (score >= 60) return "#f59e0b";
     return "#dc2626";
+}}
+
+// PDF
+function downloadPDF() {{
+    const pdfUrl = window.location.href.replace(".html", ".pdf");
+    window.open(pdfUrl);
 }}
 
 document.getElementById("scoreValue").innerText = data.score;
@@ -181,7 +268,15 @@ document.getElementById("scoreGrade").innerText = getGrade(data.score);
 document.getElementById("riskLevel").innerText = data.risk.toUpperCase();
 document.getElementById("scoreCircle").style.background = getColor(data.score);
 
-// RESUMO
+// KPIs
+document.getElementById("kpiVuln").innerText = data.findings.length;
+document.getElementById("kpiLgpd").innerText =
+data.findings.filter(f => (f.title || "").toLowerCase().includes("lgpd")).length;
+
+document.getElementById("kpiInfra").innerText = data.infra?.ips?.length || 0;
+document.getElementById("kpiScore").innerText = data.score;
+
+// RESUMO (mantido)
 let summary = "";
 
 if (data.score < 60)
@@ -195,7 +290,7 @@ if (data.findings.some(f => f.severity === "high"))
     summary += "Existem vulnerabilidades críticas que exigem ação imediata. ";
 
 if (!data.findings.some(f => (f.title || "").toLowerCase().includes("lgpd")))
-    summary += "Ausência de controles LGPD pode gerar risco regulatório, incluindo possíveis sanções da ANPD.";
+    summary += "Ausência de controles LGPD pode gerar risco regulatório.";
 
 document.getElementById("executiveSummary").innerText = summary;
 
@@ -206,10 +301,6 @@ data.top_findings.forEach(f => {{
 }});
 
 // INFRA
-function flag(c) {{
-    return c === "Brazil" ? "🇧🇷" : "🌎";
-}}
-
 const infraDiv = document.getElementById("infraContainer");
 
 (data.infra?.ips || []).forEach(ip => {{
@@ -224,7 +315,7 @@ const infraDiv = document.getElementById("infraContainer");
     `;
 }});
 
-// VULNERABILIDADES
+// VULNS (mantido)
 const vulnDiv = document.getElementById("vulnContainer");
 
 data.findings.forEach(f => {{
@@ -241,7 +332,7 @@ data.findings.forEach(f => {{
     `;
 }});
 
-// LGPD
+// LGPD (mantido)
 const lgpdDiv = document.getElementById("lgpdContainer");
 
 const lgpd = data.findings.filter(f =>
@@ -253,7 +344,7 @@ if (!lgpd.length) {{
     lgpdDiv.innerHTML = `
         <div class="action-block">
             <strong>Ausência de controles LGPD</strong><br>
-            Exposição regulatória relevante, incluindo risco de sanções administrativas pela ANPD e impacto reputacional.
+            Exposição regulatória relevante.
         </div>
     `;
 }} else {{
@@ -267,7 +358,7 @@ if (!lgpd.length) {{
     }});
 }}
 
-// AÇÃO
+// ACTION (mantido)
 const actionDiv = document.getElementById("actionPlan");
 
 data.findings
@@ -276,7 +367,7 @@ data.findings
     actionDiv.innerHTML += `<div class="action-block">${{f.recommendation}}</div>`;
 }});
 
-// MELHORIA
+// MELHORIA (mantido)
 const improveDiv = document.getElementById("scoreImprovement");
 
 data.findings.forEach(f => {{
@@ -285,7 +376,7 @@ data.findings.forEach(f => {{
     }}
 }});
 
-// GRÁFICOS
+// CHARTS
 new Chart(document.getElementById('scoreChart'), {{
     type: 'doughnut',
     data: {{
@@ -313,12 +404,6 @@ new Chart(document.getElementById('severityChart'), {{
                 counts.high,
                 counts.medium,
                 counts.low
-            ],
-            backgroundColor: [
-                "#991b1b",
-                "#dc2626",
-                "#f59e0b",
-                "#3b82f6"
             ]
         }}]
     }}
