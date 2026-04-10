@@ -13,7 +13,7 @@ def run_nuclei(domain: str) -> list:
         "-u", target,
         "-tags", "misconfig,exposure",
         "-templates", "/root/.nuclei-templates",
-        "-severity", "medium,high",
+        "-severity", "critical,medium,high",
         "-rl", "10",
         "-timeout", "10",
         "-duc",
@@ -45,7 +45,7 @@ def run_nuclei(domain: str) -> list:
     print("STDOUT:", stdout[:500])
     print("STDERR:", stderr[:500])
 
-    if process.returncode != 0:
+    if process.returncode != 0 and not stdout:
         return [{
             "title": "Erro na execução do Nuclei",
             "severity": "high",
