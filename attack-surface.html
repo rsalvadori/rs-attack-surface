@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>RS Attack Surface</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: #0f172a;
+    color: white;
+    margin: 0;
+    padding: 40px;
+}
+
+.container {
+    max-width: 1100px;
+    margin: auto;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 40px;
+}
+
+.logo-img {
+    height: 40px;
+}
+
+.subtitle {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    align-items: center;
+}
+
+.left h1 {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+
+.left p {
+    opacity: 0.8;
+    margin-bottom: 20px;
+}
+
+.benefits {
+    padding-left: 20px;
+    margin-bottom: 30px;
+}
+
+.benefits li {
+    margin-bottom: 10px;
+}
+
+.card {
+    background: #1e293b;
+    padding: 25px;
+    border-radius: 12px;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+input.error {
+    border: 2px solid #dc2626;
+}
+
+.error-text {
+    color: #f87171;
+    font-size: 12px;
+    margin-bottom: 10px;
+}
+
+button {
+    width: 100%;
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    border: none;
+    padding: 14px;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+.loader {
+    display: none;
+    text-align: center;
+    margin-top: 15px;
+    font-size: 14px;
+}
+
+.success {
+    display: none;
+    margin-top: 15px;
+    color: #4ade80;
+    font-size: 14px;
+}
+
+.preview {
+    width: 100%;
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+}
+
+@media (max-width: 900px) {
+    .main {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="header">
+    <img src="/frontend/logo.png" class="logo-img">
+    <div class="subtitle">Attack Surface Intelligence</div>
+</div>
+
+<div class="main">
+
+<div class="left">
+
+<h1>Veja o que um atacante enxerga no seu ambiente</h1>
+
+<p>
+Identifique vulnerabilidades, exposição de infraestrutura e riscos LGPD em minutos.
+</p>
+
+<ul class="benefits">
+<li>✔ Análise real de vulnerabilidades</li>
+<li>✔ Avaliação de risco regulatório (LGPD)</li>
+<li>✔ Mapeamento de exposição externa</li>
+<li>✔ Plano de ação imediato</li>
+</ul>
+
+<div class="card">
+
+<form id="scanForm">
+
+<input type="text" id="company" placeholder="Nome da empresa">
+<div class="error-text" id="error-company"></div>
+
+<input type="text" id="client" placeholder="Nome do responsável">
+<div class="error-text" id="error-client"></div>
+
+<input type="text" id="phone" placeholder="Telefone (ex: (11) 99999-9999)">
+<div class="error-text" id="error-phone"></div>
+
+<input type="email" id="email" placeholder="E-mail">
+<div class="error-text" id="error-email"></div>
+
+<input type="text" id="domain" placeholder="Domínio (ex: empresa.com)">
+<div class="error-text" id="error-domain"></div>
+
+<button type="submit">Ver análise do meu ambiente</button>
+
+</form>
+
+<!-- 🔥 ALTERADO -->
+<div class="loader" id="loader">
+<span id="loadingText"></span>
+</div>
+
+<div class="success" id="successMsg">
+✅ Análise concluída com sucesso. O relatório foi aberto em uma nova aba.
+</div>
+
+</div>
+
+</div>
+
+<div class="right">
+<img src="/frontend/dashboard-preview.png" class="preview">
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+const API_BASE = window.location.origin;
+
+// 🔥 MENSAGENS DINÂMICAS
+const loadingMessages = [
+    "🔍 Analisando superfície de ataque...",
+    "🌐 Identificando ativos expostos...",
+    "🛡️ Avaliando configurações de segurança...",
+    "🔐 Verificando protocolos e criptografia...",
+    "⚠️ Detectando vulnerabilidades...",
+    "📊 Correlacionando riscos...",
+    "📄 Gerando relatório..."
+];
+
+let loadingIndex = 0;
+let loadingInterval;
+
+function startLoading() {
+    const el = document.getElementById("loadingText");
+
+    loadingIndex = 0;
+    el.innerText = loadingMessages[loadingIndex];
+
+    loadingInterval = setInterval(() => {
+        loadingIndex = (loadingIndex + 1) % loadingMessages.length;
+        el.innerText = loadingMessages[loadingIndex];
+    }, 2000);
+}
+
+function stopLoading() {
+    clearInterval(loadingInterval);
+}
+
+// máscara telefone
+document.getElementById("phone").addEventListener("input", function(e) {
+    let v = e.target.value.replace(/\D/g, "");
+
+    if (v.length > 11) v = v.slice(0,11);
+
+    if (v.length >= 2)
+        v = "(" + v.slice(0,2) + ") " + v.slice(2);
+
+    if (v.length >= 10)
+        v = v.slice(0, 10) + "-" + v.slice(10);
+
+    e.target.value = v;
+});
+
+document.getElementById("scanForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const fields = {
+        company: document.getElementById("company"),
+        client: document.getElementById("client"),
+        phone: document.getElementById("phone"),
+        email: document.getElementById("email"),
+        domain: document.getElementById("domain")
+    };
+
+    let valid = true;
+
+    Object.keys(fields).forEach(key => {
+        fields[key].classList.remove("error");
+        document.getElementById(`error-${key}`).innerText = "";
+    });
+
+    Object.keys(fields).forEach(key => {
+        if (!fields[key].value.trim()) {
+            fields[key].classList.add("error");
+            document.getElementById(`error-${key}`).innerText = "Campo obrigatório";
+            valid = false;
+        }
+    });
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(fields.email.value)) {
+        fields.email.classList.add("error");
+        document.getElementById("error-email").innerText = "E-mail inválido";
+        valid = false;
+    }
+
+    const phoneRegex = /^\(\d{2}\)\s\d{5}-\d{4}$/;
+    if (!phoneRegex.test(fields.phone.value)) {
+        fields.phone.classList.add("error");
+        document.getElementById("error-phone").innerText = "Formato: (11) 99999-9999";
+        valid = false;
+    }
+
+    const domainRegex = /^(?!:\/\/)([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/;
+    if (!domainRegex.test(fields.domain.value)) {
+        fields.domain.classList.add("error");
+        document.getElementById("error-domain").innerText = "Domínio inválido";
+        valid = false;
+    }
+
+    if (!valid) return;
+
+    const loader = document.getElementById("loader");
+    const success = document.getElementById("successMsg");
+
+    loader.style.display = "block";
+    success.style.display = "none";
+
+    startLoading();
+
+    try {
+        const response = await fetch(`${API_BASE}/scan-report`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ domain: fields.domain.value })
+        });
+
+        if (!response.ok) throw new Error();
+
+        const result = await response.json();
+
+        if (result.html_url) {
+            window.open(result.html_url, "_blank");
+        }
+
+        success.style.display = "block";
+
+    } catch (err) {
+        alert("Erro ao executar análise");
+    }
+
+    stopLoading();
+    loader.style.display = "none";
+});
+
+</script>
+
+</body>
+</html>
