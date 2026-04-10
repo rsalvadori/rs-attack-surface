@@ -12,6 +12,7 @@ def run_nuclei(domain: str) -> list:
         NUCLEI_PATH,
         "-u", target,
         "-tags", "misconfig,exposure",
+        "-templates", "/root/nuclei-templates",
         "-severity", "medium,high",
         "-rl", "10",
         "-timeout", "10",
