@@ -66,11 +66,14 @@ def run_nuclei(domain: str) -> list:
     for line in stdout.splitlines():
         line = line.strip()
 
-        if not line.startswith("{"):
+        # 🔥 CORREÇÃO REAL AQUI
+        if "{" not in line:
             continue
 
+        json_part = line[line.find("{"):]
+
         try:
-            data = json.loads(line)
+            data = json.loads(json_part)
 
             info = data.get("info", {})
             name = info.get("name", "Nuclei Finding")
