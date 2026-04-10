@@ -4,107 +4,90 @@ import shutil
 
 
 def run_nuclei(domain: str) -> list:
-    """
-    Execução do Nuclei replicando comportamento do terminal.
-    """
-
     target = f"https://{domain}"
 
-    # 🔥 PATH DINÂMICO (funciona local + Railway + Docker)
     NUCLEI_PATH = shutil.which("nuclei") or "nuclei"
 
     command = [
         NUCLEI_PATH,
         "-u", target,
-        "-t", "/root/.nuclei-templates/http",
-        "-t", "/root/.nuclei-templates/misconfiguration",
         "-tags", "misconfig,exposure",
         "-severity", "critical,high,medium",
         "-rl", "5",
-        "-timeout", "10",
-        "-retries", "1",
+        "-timeout", "5",
+        "-j"
     ]
 
     print("TARGET NUCLEI:", target)
     print("NUCLEI PATH:", NUCLEI_PATH)
     print("COMANDO NUCLEI:", " ".join(command))
 
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+
     try:
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            timeout=120
-        )
-
-        stdout = (result.stdout or "").strip()
-        stderr = (result.stderr or "").strip()
-
-        print("STDOUT FULL:", stdout)
-
-        if stderr:
-            print("[NUCLEI STDERR]", stderr)
-
-        if not stdout:
-            return [{
-                "title": "Nenhuma evidência retornada pelo Nuclei",
-                "severity": "info",
-                "impact": "A varredura foi executada, mas não retornou achados dentro do escopo configurado.",
-                "recommendation": "Manter monitoramento contínuo e realizar testes mais aprofundados."
-            }]
-
-        findings = []
-
-        for line in stdout.splitlines():
-            line = line.strip()
-
-            if not line.startswith("{"):
-                continue
-
-            try:
-                data = json.loads(line)
-
-                info = data.get("info", {})
-                name = info.get("name", "Nuclei Finding")
-                severity = info.get("severity", "info")
-
-                matched = data.get("matched-at") or data.get("host") or target
-
-                findings.append({
-                    "title": name,
-                    "severity": severity,
-                    "impact": f"Evidência identificada em {matched}",
-                    "recommendation": "Validar tecnicamente e aplicar correção ou hardening conforme aplicável."
-                })
-
-            except Exception:
-                continue
-
-        if not findings:
-            return [{
-                "title": "Nenhuma evidência parseada do Nuclei",
-                "severity": "info",
-                "impact": "O Nuclei retornou dados, mas nenhum foi convertido em achado.",
-                "recommendation": "Revisar parsing ou aumentar escopo do scan."
-            }]
-
-        return findings
-
+        stdout, stderr = process.communicate(timeout=60)
     except subprocess.TimeoutExpired:
+        process.kill()
+        stdout, stderr = process.communicate()
+        print("NUCLEI TIMEOUT - PARTIAL OUTPUT:", stdout[:500])
+
+    stdout = (stdout or "").strip()
+    stderr = (stderr or "").strip()
+
+    print("STDOUT FULL:", stdout[:500])
+
+    if stderr:
+        print("[NUCLEI STDERR]", stderr)
+
+    if not stdout:
         return [{
-            "title": "Timeout na execução do Nuclei",
+            "title": "Nenhuma evidência retornada pelo Nuclei",
             "severity": "info",
-            "impact": "O scanner demorou além do esperado.",
-            "recommendation": "Aumentar timeout ou reduzir escopo."
+            "impact": "A varredura foi executada, mas não retornou achados dentro do escopo configurado.",
+            "recommendation": "Manter monitoramento contínuo e realizar testes mais aprofundados."
         }]
 
-    except Exception as e:
+    findings = []
+
+    for line in stdout.splitlines():
+        line = line.strip()
+
+        if not line.startswith("{"):
+            continue
+
+        try:
+            data = json.loads(line)
+
+            info = data.get("info", {})
+            name = info.get("name", "Nuclei Finding")
+            severity = info.get("severity", "info")
+
+            matched = data.get("matched-at") or data.get("host") or target
+
+            findings.append({
+                "title": name,
+                "severity": severity,
+                "impact": f"Evidência identificada em {matched}",
+                "recommendation": "Validar tecnicamente e aplicar correção ou hardening conforme aplicável."
+            })
+
+        except Exception:
+            continue
+
+    if not findings:
         return [{
-            "title": "Erro na execução do Nuclei",
+            "title": "Nenhuma evidência parseada do Nuclei",
             "severity": "info",
-            "impact": f"Erro: {str(e)}",
-            "recommendation": "Verificar ambiente do Nuclei."
+            "impact": "O Nuclei retornou dados, mas nenhum foi convertido em achado.",
+            "recommendation": "Revisar parsing ou aumentar escopo do scan."
         }]
+
+    return findings
 
 
 def analyze_nuclei(domain: str):
