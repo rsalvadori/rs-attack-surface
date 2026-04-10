@@ -15,8 +15,8 @@ def send_email(to_email, subject, body, attachment_path=None):
     }
 
     payload = {
-        "from": "RS Attack Surface <onboarding@resend.dev>",
-        "to": [to_email],
+        "from": "RS Attack Surface <reportsattacksurface@rsdatasecurity.com.br>",,
+        "to": ["comercial@rsdatasecurity.com.br"],
         "subject": subject,
         "text": body
     }
