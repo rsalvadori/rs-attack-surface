@@ -13,7 +13,7 @@ def run_nuclei(domain: str) -> list:
         "-u", target,
 
     # 🔥 LIMITADO (ESSENCIAL)
-        "-templates", "/root/.nuclei-templates/http/",
+        "-templates", "/root/.nuclei-templates/http/exposures/",
         "-tags", "cve,exposure",
 
     # 🔒 CONTROLE
