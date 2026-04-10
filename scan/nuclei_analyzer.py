@@ -21,8 +21,7 @@ def run_nuclei(domain: str) -> list:
     ]
 
     print("TARGET NUCLEI:", target)
-    print("NUCLEI PATH:", NUCLEI_PATH)
-    print("COMANDO NUCLEI:", " ".join(command))
+    print("COMANDO:", " ".join(command))
 
     process = subprocess.Popen(
         command,
@@ -36,29 +35,20 @@ def run_nuclei(domain: str) -> list:
     except subprocess.TimeoutExpired:
         process.kill()
         stdout, stderr = process.communicate()
-        print("NUCLEI TIMEOUT - PARTIAL OUTPUT:", stdout[:500])
+        print("TIMEOUT - PARTIAL STDOUT:", stdout[:500])
 
     stdout = (stdout or "").strip()
-    stderr = (stderr or "").strip()
 
-    print("RETURN CODE:", process.returncode)
-    print("STDOUT:", stdout[:500])
-    print("STDERR:", stderr[:500])
+    print("STDOUT PREVIEW:", stdout[:500])
 
-    if process.returncode != 0 and not stdout:
-        return [{
-            "title": "Erro na execução do Nuclei",
-            "severity": "high",
-            "impact": f"Erro retornado pelo Nuclei: {stderr or 'sem mensagem'}",
-            "recommendation": "Verificar execução do binário e templates no ambiente."
-        }]
+    # 🔥 NÃO CONFIA MAIS EM returncode / stderr
 
     if not stdout:
         return [{
-            "title": "Nenhuma evidência retornada pelo Nuclei",
+            "title": "Scan executado sem retorno",
             "severity": "info",
-            "impact": "A varredura foi executada, mas não encontrou achados relevantes dentro do escopo.",
-            "recommendation": "Executar análise mais profunda sob demanda."
+            "impact": "O Nuclei executou, mas não retornou dados no stdout.",
+            "recommendation": "Aumentar escopo ou validar alvo."
         }]
 
     findings = []
@@ -66,10 +56,11 @@ def run_nuclei(domain: str) -> list:
     for line in stdout.splitlines():
         line = line.strip()
 
-        # 🔥 CORREÇÃO REAL AQUI
+        # ignora linhas sem JSON
         if "{" not in line:
             continue
 
+        # pega apenas a parte JSON
         json_part = line[line.find("{"):]
 
         try:
@@ -85,18 +76,19 @@ def run_nuclei(domain: str) -> list:
                 "title": name,
                 "severity": severity,
                 "impact": f"Evidência identificada em {matched}",
-                "recommendation": "Validar tecnicamente e aplicar correção ou hardening conforme aplicável."
+                "recommendation": "Validar tecnicamente e aplicar correção."
             })
 
         except Exception:
             continue
 
+    # 🔥 fallback se não parseou nada
     if not findings:
         return [{
-            "title": "Nenhuma evidência relevante identificada",
+            "title": "Scan executado sem findings parseáveis",
             "severity": "info",
-            "impact": "O scan não encontrou vulnerabilidades dentro do escopo configurado.",
-            "recommendation": "Para maior profundidade, executar análise ampliada."
+            "impact": "O Nuclei retornou saída, mas sem dados estruturados aproveitáveis.",
+            "recommendation": "Revisar escopo ou ampliar severidade."
         }]
 
     return findings
