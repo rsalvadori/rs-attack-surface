@@ -11,7 +11,8 @@ def run_nuclei(domain: str) -> list:
     command = [
         NUCLEI_PATH,
         "-u", target,
-        "-t", "/root/nuclei-templates/http",
+        "-tags", "misconfig,exposure",
+        "-severity", "medium,high",
         "-rl", "10",
         "-timeout", "10",
         "-j"
@@ -29,7 +30,7 @@ def run_nuclei(domain: str) -> list:
     )
 
     try:
-        stdout, stderr = process.communicate(timeout=120)
+        stdout, stderr = process.communicate(timeout=90)
     except subprocess.TimeoutExpired:
         process.kill()
         stdout, stderr = process.communicate()
@@ -42,21 +43,21 @@ def run_nuclei(domain: str) -> list:
     print("STDOUT:", stdout[:500])
     print("STDERR:", stderr[:500])
 
-    # 🚨 TRATAMENTO REAL DE ERRO
+    # 🚨 ERRO REAL DO NUCLEI
     if process.returncode != 0:
         return [{
             "title": "Erro na execução do Nuclei",
             "severity": "high",
             "impact": f"Erro retornado pelo Nuclei: {stderr or 'sem mensagem'}",
-            "recommendation": "Verificar binário, templates ou flags utilizadas."
+            "recommendation": "Verificar execução do binário e templates no ambiente."
         }]
 
     if not stdout:
         return [{
             "title": "Nenhuma evidência retornada pelo Nuclei",
             "severity": "info",
-            "impact": "A varredura foi executada, mas não retornou achados dentro do escopo configurado.",
-            "recommendation": "Testar com escopo maior ou validar templates."
+            "impact": "A varredura foi executada, mas não encontrou achados relevantes dentro do escopo.",
+            "recommendation": "Executar análise mais profunda sob demanda."
         }]
 
     findings = []
@@ -88,10 +89,10 @@ def run_nuclei(domain: str) -> list:
 
     if not findings:
         return [{
-            "title": "Nenhuma evidência parseada do Nuclei",
+            "title": "Nenhuma evidência relevante identificada",
             "severity": "info",
-            "impact": "O Nuclei retornou dados, mas nenhum foi convertido em achado.",
-            "recommendation": "Revisar parsing ou ampliar escopo."
+            "impact": "O scan não encontrou vulnerabilidades dentro do escopo configurado.",
+            "recommendation": "Para maior profundidade, executar análise ampliada."
         }]
 
     return findings
