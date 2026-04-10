@@ -32,7 +32,7 @@ def run_nuclei(domain: str) -> list:
     )
 
     try:
-        stdout, stderr = process.communicate(timeout=90)
+        stdout, stderr = process.communicate(timeout=300)
     except subprocess.TimeoutExpired:
         process.kill()
         stdout, stderr = process.communicate()
