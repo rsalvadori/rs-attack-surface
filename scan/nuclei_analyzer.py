@@ -11,7 +11,7 @@ def run_nuclei(domain: str) -> list:
     command = [
         NUCLEI_PATH,
         "-u", target,
-        "-t", "/root/.nuclei-templates/http",
+        "-t", "/root/nuclei-templates/http",
         "-rl", "10",
         "-timeout", "10",
         "-j"
