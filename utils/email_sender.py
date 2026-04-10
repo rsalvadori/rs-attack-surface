@@ -16,8 +16,8 @@ def send_email(to_email, subject, body, attachment_path=None):
     payload = {
         "from": "onboarding@resend.dev",
         "to": ["comercial@rsdatasecurity.com.br"],
-        "subject": "TESTE FINAL",
-        "text": "TESTE"
+        "subject": "RS - Attack Surface: Relatorio Tecnico",
+        "text": "obrigado por usar o RS Attach Surface. Segue abaixo relatorio tecnico do ambiente!"
     }
 
     response = requests.post(
