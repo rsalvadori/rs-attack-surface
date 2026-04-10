@@ -1,4 +1,5 @@
 import subprocess
+import json
 import shutil
 
 
@@ -12,7 +13,8 @@ def run_nuclei(domain: str) -> list:
         "-u", target,
         "-t", "/root/.nuclei-templates/http",
         "-rl", "10",
-        "-timeout", "10"
+        "-timeout", "10",
+        "-j"
     ]
 
     print("TARGET NUCLEI:", target)
@@ -36,17 +38,25 @@ def run_nuclei(domain: str) -> list:
     stdout = (stdout or "").strip()
     stderr = (stderr or "").strip()
 
-    print("STDOUT FULL:", stdout[:1000])
+    print("RETURN CODE:", process.returncode)
+    print("STDOUT:", stdout[:500])
+    print("STDERR:", stderr[:500])
 
-    if stderr:
-        print("[NUCLEI STDERR]", stderr)
+    # 🚨 TRATAMENTO REAL DE ERRO
+    if process.returncode != 0:
+        return [{
+            "title": "Erro na execução do Nuclei",
+            "severity": "high",
+            "impact": f"Erro retornado pelo Nuclei: {stderr or 'sem mensagem'}",
+            "recommendation": "Verificar binário, templates ou flags utilizadas."
+        }]
 
     if not stdout:
         return [{
             "title": "Nenhuma evidência retornada pelo Nuclei",
             "severity": "info",
             "impact": "A varredura foi executada, mas não retornou achados dentro do escopo configurado.",
-            "recommendation": "Manter monitoramento contínuo e realizar testes mais aprofundados."
+            "recommendation": "Testar com escopo maior ou validar templates."
         }]
 
     findings = []
@@ -54,15 +64,35 @@ def run_nuclei(domain: str) -> list:
     for line in stdout.splitlines():
         line = line.strip()
 
-        if not line:
+        if not line.startswith("{"):
             continue
 
-        findings.append({
-            "title": line,
+        try:
+            data = json.loads(line)
+
+            info = data.get("info", {})
+            name = info.get("name", "Nuclei Finding")
+            severity = info.get("severity", "info")
+
+            matched = data.get("matched-at") or data.get("host") or target
+
+            findings.append({
+                "title": name,
+                "severity": severity,
+                "impact": f"Evidência identificada em {matched}",
+                "recommendation": "Validar tecnicamente e aplicar correção ou hardening conforme aplicável."
+            })
+
+        except Exception:
+            continue
+
+    if not findings:
+        return [{
+            "title": "Nenhuma evidência parseada do Nuclei",
             "severity": "info",
-            "impact": "Resultado bruto do Nuclei",
-            "recommendation": "Analisar manualmente"
-        })
+            "impact": "O Nuclei retornou dados, mas nenhum foi convertido em achado.",
+            "recommendation": "Revisar parsing ou ampliar escopo."
+        }]
 
     return findings
 
