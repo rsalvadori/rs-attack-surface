@@ -1,7 +1,6 @@
 # utils/email_sender.py
 
 import requests
-import base64
 
 RESEND_API_KEY = "re_jBBWhuEX_JAGjT36prrG1kbPpKeBabd46"
 
@@ -15,22 +14,11 @@ def send_email(to_email, subject, body, attachment_path=None):
     }
 
     payload = {
-        "from": "RS Attack Surface <onboarding@resend.dev>",
-        "to": ["rsalvadori@rsdatacriptoprivacy.com"],
-        "subject": "Relatorio de Analise Tecnica de Ataque de Superfície",
-        "text": "Obrigado por usar o RS Attach Surface!"
+        "from": "onboarding@resend.dev",
+        "to": ["comercial@rsdatasecurity.com.br"],
+        "subject": "TESTE FINAL",
+        "text": "TESTE"
     }
-
-    if attachment_path:
-        with open(attachment_path, "rb") as f:
-            encoded = base64.b64encode(f.read()).decode()
-
-        payload["attachments"] = [
-            {
-                "filename": "relatorio.pdf",
-                "content": encoded
-            }
-        ]
 
     response = requests.post(
         url,
@@ -38,5 +26,6 @@ def send_email(to_email, subject, body, attachment_path=None):
         json=payload
     )
 
+    print("DEBUG TO:", payload["to"])
     print("RESEND STATUS:", response.status_code)
     print("RESEND BODY:", response.text)
