@@ -1,5 +1,4 @@
 import subprocess
-import json
 import shutil
 
 
@@ -11,11 +10,9 @@ def run_nuclei(domain: str) -> list:
     command = [
         NUCLEI_PATH,
         "-u", target,
-        "-tags", "misconfig,exposure",
-        "-severity", "critical,high,medium",
+        "-t", "/root/.nuclei-templates/http",
         "-rl", "10",
-        "-timeout", "10",
-        "-j"
+        "-timeout", "10"
     ]
 
     print("TARGET NUCLEI:", target)
@@ -39,7 +36,7 @@ def run_nuclei(domain: str) -> list:
     stdout = (stdout or "").strip()
     stderr = (stderr or "").strip()
 
-    print("STDOUT FULL:", stdout[:500])
+    print("STDOUT FULL:", stdout[:1000])
 
     if stderr:
         print("[NUCLEI STDERR]", stderr)
@@ -57,35 +54,15 @@ def run_nuclei(domain: str) -> list:
     for line in stdout.splitlines():
         line = line.strip()
 
-        if not line.startswith("{"):
+        if not line:
             continue
 
-        try:
-            data = json.loads(line)
-
-            info = data.get("info", {})
-            name = info.get("name", "Nuclei Finding")
-            severity = info.get("severity", "info")
-
-            matched = data.get("matched-at") or data.get("host") or target
-
-            findings.append({
-                "title": name,
-                "severity": severity,
-                "impact": f"Evidência identificada em {matched}",
-                "recommendation": "Validar tecnicamente e aplicar correção ou hardening conforme aplicável."
-            })
-
-        except Exception:
-            continue
-
-    if not findings:
-        return [{
-            "title": "Nenhuma evidência parseada do Nuclei",
+        findings.append({
+            "title": line,
             "severity": "info",
-            "impact": "O Nuclei retornou dados, mas nenhum foi convertido em achado.",
-            "recommendation": "Revisar parsing ou aumentar escopo do scan."
-        }]
+            "impact": "Resultado bruto do Nuclei",
+            "recommendation": "Analisar manualmente"
+        })
 
     return findings
 
