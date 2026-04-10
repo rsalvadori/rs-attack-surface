@@ -14,7 +14,6 @@ def run_nuclei(domain: str) -> list:
 
     # 🔥 LIMITADO (ESSENCIAL)
         "-templates", "/root/.nuclei-templates/http/exposures/",
-        "-tags", "cve,exposure",
 
     # 🔒 CONTROLE
         "-rl", "2",
