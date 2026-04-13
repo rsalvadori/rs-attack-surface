@@ -400,7 +400,8 @@ function recalculatePlan() {{
         "B": f => ["critical"].includes(f.severity),
         "C": f => ["critical"].includes(f.severity),
         "D": f => false
-}};
+    }};
+
     const violations = (data.findings || []).filter(f => rules[target](f));
 
     if (violations.length === 0) {{
@@ -416,7 +417,7 @@ function recalculatePlan() {{
             </div>
         `;
     }});
-}
+}}
 
 // CHARTS
 recalculatePlan();
