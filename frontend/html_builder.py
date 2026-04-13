@@ -231,12 +231,12 @@ document.getElementById("currentGrade").innerText = data.current_grade;
 
 const select = document.getElementById("targetGradeSelect");
 
-(data.allowed_upgrade_targets || []).forEach(g => {
+(data.allowed_upgrade_targets || []).forEach(g => {{
     const opt = document.createElement("option");
     opt.value = g;
     opt.text = g;
     select.appendChild(opt);
-});
+}});
 
 // 👉 ADICIONA ISSO
 if (select.options.length > 0) {
@@ -378,13 +378,13 @@ const baseFixes = (data.findings || []).filter(f =>
     ["critical", "high"].includes(f.severity)
 );
 
-    baseFixes.forEach(f => {
+    baseFixes.forEach(f => {{
         actionDiv.innerHTML += `
             <div class="action-block">
                 ${{f.recommendation || ""}}
             </div>
         `;
-    });
+    }});
 
 // MELHORIA
 function recalculatePlan() {
@@ -395,12 +395,12 @@ function recalculatePlan() {
 
     if (!target) return;
 
-    const rules = {
+    const rules = {{
         "A": f => ["critical", "high"].includes(f.severity),
         "B": f => ["critical"].includes(f.severity),
         "C": f => ["critical"].includes(f.severity),
         "D": f => false
-};
+}};
     const violations = (data.findings || []).filter(f => rules[target](f));
 
     if (violations.length === 0) {
