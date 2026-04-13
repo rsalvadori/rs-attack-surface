@@ -239,9 +239,9 @@ const select = document.getElementById("targetGradeSelect");
 }});
 
 // 👉 ADICIONA ISSO
-if (select.options.length > 0) {
+if (select.options.length > 0) {{
     select.value = select.options[0].value;
-}
+}}
 
 function getGrade(score) {{
     if (score >= 90) return "A";
