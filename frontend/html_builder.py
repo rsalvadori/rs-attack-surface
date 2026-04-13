@@ -244,10 +244,10 @@ if (select.options.length > 0) {{
 }}
 
 function getGrade(score) {{
-    if (score >= 90) return "A";
-    if (score >= 80) return "B";
-    if (score >= 70) return "C";
-    if (score >= 60) return "D";
+    if (score >= 85) return "A";
+    if (score >= 70) return "B";
+    if (score >= 55) return "C";
+    if (score >= 40) return "D";
     return "E";
 }}
 
@@ -282,7 +282,9 @@ function isLgpdFinding(f) {{
     ].some(k => text.includes(k));
 }}
 
-const lgpdFindings = data.findings.filter(isLgpdFinding);
+const lgpdFindings = data.findings.filter(f =>
+    isLgpdFinding(f) && ["medium", "high", "critical"].includes(f.severity)
+);
 
 // SCORE
 document.getElementById("scoreValue").innerText = data.score;
@@ -395,17 +397,17 @@ function recalculatePlan() {{
 
     if (!target) return;
 
-    const rules = {{
-        "A": f => ["critical", "high"].includes(f.severity),
-        "B": f => ["critical"].includes(f.severity),
+    const rules = {
+        "A": f => ["critical", "high", "medium"].includes(f.severity),
+        "B": f => ["critical", "high"].includes(f.severity),
         "C": f => ["critical"].includes(f.severity),
         "D": f => false
-    }};
+    };
 
     const violations = (data.findings || []).filter(f => rules[target](f));
 
     if (violations.length === 0) {{
-        div.innerHTML = "<div>Você já atende os critérios para esse nível.</div>";
+        div.innerHTML = "<div>Seu ambiente já atende os requisitos mínimos para este nível.</div>";
         return;
     }}
 
