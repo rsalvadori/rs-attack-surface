@@ -350,14 +350,14 @@ if (!lgpdFindings.length) {{
 // ACTION
 const actionDiv = document.getElementById("actionPlan");
 
-if (!data.action_plan || data.action_plan.length === 0) {
+if (!data.action_plan || data.action_plan.length === 0) {{
     actionDiv.innerHTML = `
         <div class="action-block">
             Nenhuma ação necessária para atingir o objetivo selecionado.
         </div>
     `;
-} else {
-    data.action_plan.forEach(action => {
+}} else {{
+    data.action_plan.forEach(action => {{
         actionDiv.innerHTML += `
             <div class="action-block">
                 <strong>${action.title}</strong><br>
@@ -367,7 +367,7 @@ if (!data.action_plan || data.action_plan.length === 0) {
                 </small>
             </div>
         `;
-    });
+    }});
 }
 // MELHORIA
 const improveDiv = document.getElementById("scoreImprovement");
@@ -377,17 +377,18 @@ improveDiv.innerHTML = `
     <strong>Objetivo:</strong> ${data.target_grade || "-"}<br><br>
 `;
 
-if (data.action_plan && data.action_plan.length > 0) {
-    data.action_plan.forEach(action => {
+if (data.action_plan && data.action_plan.length > 0) {{
+    data.action_plan.forEach(action => {{
         improveDiv.innerHTML += `
             <div style="margin-bottom:8px;">
                 → ${action.title}
             </div>
         `;
-    });
-} else {
+    }});
+}} else {{
     improveDiv.innerHTML += "Nenhuma melhoria necessária.";
-}
+}}
+
 // CHARTS
 new Chart(document.getElementById('scoreChart'), {{
     type: 'doughnut',
