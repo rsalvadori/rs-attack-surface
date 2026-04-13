@@ -387,7 +387,7 @@ const baseFixes = (data.findings || []).filter(f =>
     }});
 
 // MELHORIA
-function recalculatePlan() {
+function recalculatePlan() {{
     const target = document.getElementById("targetGradeSelect").value;
     const div = document.getElementById("scoreImprovement");
 
@@ -403,19 +403,19 @@ function recalculatePlan() {
 }};
     const violations = (data.findings || []).filter(f => rules[target](f));
 
-    if (violations.length === 0) {
+    if (violations.length === 0) {{
         div.innerHTML = "<div>Você já atende os critérios para esse nível.</div>";
         return;
-    }
+    }}
 
-    violations.forEach(f => {
+    violations.forEach(f => {{
         div.innerHTML += `
             <div class="action-block">
                 <strong>${{f.title}}</strong><br>
                 ${{f.recommendation || ""}}
             </div>
         `;
-    });
+    }});
 }
 
 // CHARTS
