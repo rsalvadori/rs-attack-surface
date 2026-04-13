@@ -240,7 +240,6 @@ async def scan_report(request: Request):
         f.write(generate_html_dashboard(result))
 
     try:
-    try:
         send_email_lead(
             company=company,
             client=client,
