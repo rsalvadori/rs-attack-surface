@@ -397,12 +397,12 @@ function recalculatePlan() {{
 
     if (!target) return;
 
-    const rules = {
+    const rules = {{
         "A": f => ["critical", "high", "medium"].includes(f.severity),
         "B": f => ["critical", "high"].includes(f.severity),
         "C": f => ["critical"].includes(f.severity),
         "D": f => false
-    };
+    }};
 
     const violations = (data.findings || []).filter(f => rules[target](f));
 
