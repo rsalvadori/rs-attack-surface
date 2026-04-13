@@ -241,40 +241,18 @@ async def scan_report(request: Request):
 
     try:
         send_email(
-            to_email="reportsattacksurface@rsdatasecurity.com.br",
-            subject="Novo Lead - RS Attack Surface",
+            to_email="comercial@rsdatasecurity.com.br",
+            subject="NOVO LEAD - RS Attack Surface",
             body=f"""
 Empresa: {company}
 Responsável: {client}
 Email: {email}
 Telefone: {phone}
-
 Domínio: {domain}
 Score: {result.get("score")}
 Risco: {result.get("risk")}
-""",
-            attachment_path=pdf_path
+"""
         )
-
-        if email and email != "-":
-            send_email(
-                to_email=email,
-                subject="Relatório de Segurança do seu ambiente",
-                body=f"""
-Olá {client},
-
-Realizamos uma análise do domínio {domain}.
-
-Identificamos possíveis pontos de atenção que podem impactar a segurança e a conformidade do ambiente.
-
-O relatório completo segue em anexo.
-
-Caso queira aprofundar a análise ou evoluir a proteção do seu ambiente, podemos te apoiar.
-
-RS Data Security
-""",
-                attachment_path=pdf_path
-            )
 
     except Exception as e:
         print("EMAIL ERROR:", str(e))

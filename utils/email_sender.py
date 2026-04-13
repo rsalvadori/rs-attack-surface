@@ -1,10 +1,8 @@
-# utils/email_sender.py
-
 import requests
 
 RESEND_API_KEY = "re_jBBWhuEX_JAGjT36prrG1kbPpKeBabd46"
 
-def send_email(to_email, subject, body, attachment_path=None):
+def send_email_lead(company, client, email, phone, domain):
 
     url = "https://api.resend.com/emails"
 
@@ -15,17 +13,18 @@ def send_email(to_email, subject, body, attachment_path=None):
 
     payload = {
         "from": "onboarding@resend.dev",
-        "to": ["comercial@rsdatasecurity.com.br"],
-        "subject": "RS - Attack Surface: Relatorio Tecnico",
-        "text": "obrigado por usar o RS Attach Surface. Segue abaixo relatorio tecnico do ambiente!"
+        "to": ["comercial@rsdatasecurity.com.br"],  # único permitido
+        "subject": "NOVO LEAD - RS Attack Surface",
+        "text": f"""
+Empresa: {company}
+Responsável: {client}
+Email: {email}
+Telefone: {phone}
+Domínio: {domain}
+"""
     }
 
-    response = requests.post(
-        url,
-        headers=headers,
-        json=payload
-    )
+    response = requests.post(url, headers=headers, json=payload)
 
-    print("DEBUG TO:", payload["to"])
     print("RESEND STATUS:", response.status_code)
     print("RESEND BODY:", response.text)
