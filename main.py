@@ -16,7 +16,7 @@ from scan.finding_enricher import enrich_finding
 from scan.report_generator_html import generate_pdf_report
 
 from frontend.html_builder import generate_html_dashboard
-from utils.email_sender import send_email
+from utils.email_sender import send_email_lead
 
 app = FastAPI(
     title="RS Attack Surface API",
@@ -240,19 +240,13 @@ async def scan_report(request: Request):
         f.write(generate_html_dashboard(result))
 
     try:
-        send_email(
-            to_email="comercial@rsdatasecurity.com.br",
-            subject="NOVO LEAD - RS Attack Surface",
-            body=f"""
-Empresa: {company}
-Responsável: {client}
-Email: {email}
-Telefone: {phone}
-Domínio: {domain}
-Score: {result.get("score")}
-Risco: {result.get("risk")}
-"""
-        )
+send_email_lead(
+    company=company,
+    client=client,
+    email=email,
+    phone=phone,
+    domain=domain
+)
 
     except Exception as e:
         print("EMAIL ERROR:", str(e))
