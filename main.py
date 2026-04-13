@@ -240,14 +240,14 @@ async def scan_report(request: Request):
         f.write(generate_html_dashboard(result))
 
     try:
-send_email_lead(
-    company=company,
-    client=client,
-    email=email,
-    phone=phone,
-    domain=domain
-)
-
+    try:
+        send_email_lead(
+            company=company,
+            client=client,
+            email=email,
+            phone=phone,
+            domain=domain
+        )
     except Exception as e:
         print("EMAIL ERROR:", str(e))
 
