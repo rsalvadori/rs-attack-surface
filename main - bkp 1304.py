@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -16,6 +16,7 @@ from scan.finding_enricher import enrich_finding
 from scan.report_generator_html import generate_pdf_report
 
 from frontend.html_builder import generate_html_dashboard
+from utils.email_sender import send_email_lead
 
 app = FastAPI(
     title="RS Attack Surface API",
@@ -27,10 +28,7 @@ app = FastAPI(
 # FRONTEND
 # =========================
 app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
-
-# 🔥 NOVO (necessário para abrir HTML gerado)
 app.mount("/reports", StaticFiles(directory="reports"), name="reports")
-
 
 @app.get("/")
 def serve_dashboard():
@@ -38,7 +36,7 @@ def serve_dashboard():
 
 
 # =========================
-# MODELOS
+# MODELO
 # =========================
 class ScanRequest(BaseModel):
     domain: str = Field(..., example="example.com")
@@ -50,7 +48,6 @@ class ScanRequest(BaseModel):
 DOMAIN_REGEX = re.compile(
     r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
 )
-
 
 def normalize_domain(domain: str) -> str:
     domain = domain.strip().lower()
@@ -75,7 +72,6 @@ def normalize_domain(domain: str) -> str:
 
     return host
 
-
 def validate_domain(domain: str) -> bool:
     return bool(DOMAIN_REGEX.match(domain))
 
@@ -83,7 +79,7 @@ def validate_domain(domain: str) -> bool:
 # =========================
 # SCORE
 # =========================
-def calculate_scores(findings: list[dict]) -> tuple[int, str, int, int]:
+def calculate_scores(findings: list[dict]):
     security_score = 100
     privacy_score = 100
 
@@ -91,12 +87,10 @@ def calculate_scores(findings: list[dict]) -> tuple[int, str, int, int]:
         severity = f.get("severity", "info")
         title = f.get("title", "").lower()
 
-        is_privacy = any(
-            k in title for k in [
-                "privacidade", "lgpd", "cookies", "encarregado",
-                "privacy", "cookie", "consent", "gdpr"
-            ]
-        )
+        is_privacy = any(k in title for k in [
+            "privacidade", "lgpd", "cookies", "encarregado",
+            "privacy", "cookie", "consent", "gdpr"
+        ])
 
         if is_privacy:
             if severity == "high":
@@ -130,14 +124,8 @@ def calculate_scores(findings: list[dict]) -> tuple[int, str, int, int]:
     return final_score, risk, security_score, privacy_score
 
 
-def get_top_findings(findings: list[dict], limit: int = 3) -> list[dict]:
-    severity_order = {
-        "critical": 4,
-        "high": 3,
-        "medium": 2,
-        "low": 1,
-        "info": 0
-    }
+def get_top_findings(findings, limit=3):
+    severity_order = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}
 
     filtered = [f for f in findings if f.get("severity") != "info"]
 
@@ -151,55 +139,28 @@ def get_top_findings(findings: list[dict], limit: int = 3) -> list[dict]:
 # =========================
 # CORE
 # =========================
-def execute_scan(domain: str) -> dict:
-    findings: list[dict] = []
+def execute_scan(domain: str):
+
+    findings = []
 
     try:
         httpx_data = run_httpx(domain)
     except Exception:
         httpx_data = {}
 
-    if httpx_data:
-        findings.append({
-            "title": "HTTPX Scan Executado",
-            "severity": "info",
-            "impact": f"Status {httpx_data.get('status_code')} em {httpx_data.get('url')}",
-            "recommendation": "Prosseguir com análise"
-        })
-
     headers_raw = str(httpx_data).lower()
 
     if "strict-transport-security" not in headers_raw:
-        findings.append({
-            "title": "Missing HSTS",
-            "severity": "medium",
-            "impact": "HTTPS não está sendo forçado.",
-            "recommendation": "Configurar HSTS."
-        })
+        findings.append({"title": "Missing HSTS", "severity": "medium"})
 
     if "content-security-policy" not in headers_raw:
-        findings.append({
-            "title": "Missing CSP",
-            "severity": "medium",
-            "impact": "Exposição a XSS.",
-            "recommendation": "Implementar CSP."
-        })
+        findings.append({"title": "Missing CSP", "severity": "medium"})
 
     if "x-frame-options" not in headers_raw:
-        findings.append({
-            "title": "Missing X-Frame-Options",
-            "severity": "medium",
-            "impact": "Possível clickjacking.",
-            "recommendation": "Configurar X-Frame-Options."
-        })
+        findings.append({"title": "Missing X-Frame-Options", "severity": "medium"})
 
     if "x-content-type-options" not in headers_raw:
-        findings.append({
-            "title": "Missing X-Content-Type-Options",
-            "severity": "low",
-            "impact": "Interpretação incorreta.",
-            "recommendation": "Configurar nosniff."
-        })
+        findings.append({"title": "Missing X-Content-Type-Options", "severity": "low"})
 
     try:
         findings.extend(analyze_tls(domain) or [])
@@ -226,46 +187,36 @@ def execute_scan(domain: str) -> dict:
     except Exception:
         pass
 
-    score, risk, security_score, privacy_score = calculate_scores(findings)
-    top_findings = get_top_findings(findings)
+    score, risk, sec, priv = calculate_scores(findings)
 
     return {
         "target": domain,
         "score": score,
         "risk": risk,
-        "security_score": security_score,
-        "privacy_score": privacy_score,
+        "security_score": sec,
+        "privacy_score": priv,
         "findings": findings,
-        "top_findings": top_findings,
+        "top_findings": get_top_findings(findings),
         "infra": infra_data,
         "raw_httpx": httpx_data
     }
 
 
 # =========================
-# ENDPOINTS
-# =========================
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
-@app.post("/scan")
-def scan(request: ScanRequest):
-    domain = normalize_domain(request.domain)
-
-    if not validate_domain(domain):
-        raise HTTPException(status_code=400, detail="Domínio inválido.")
-
-    return execute_scan(domain)
-
-
-# =========================
-# ✅ CORRIGIDO
+# ENDPOINT PRINCIPAL
 # =========================
 @app.post("/scan-report")
-def scan_report(request: ScanRequest):
-    domain = normalize_domain(request.domain)
+async def scan_report(request: Request):
+
+    body = await request.json()
+
+    domain_input = body.get("domain")
+    company = body.get("company", "-")
+    client = body.get("client", "-")
+    phone = body.get("phone", "-")
+    email = body.get("email", "-")
+
+    domain = normalize_domain(domain_input)
 
     if not validate_domain(domain):
         raise HTTPException(status_code=400, detail="Domínio inválido.")
@@ -278,21 +229,30 @@ def scan_report(request: ScanRequest):
     client_dir = os.path.join("reports", safe_domain)
     os.makedirs(client_dir, exist_ok=True)
 
-    # PDF (mantido)
     pdf_name = f"report_{safe_domain}_{timestamp}.pdf"
     pdf_path = os.path.join(client_dir, pdf_name)
     generate_pdf_report(result, pdf_path)
 
-    # HTML
     html_name = f"report_{safe_domain}_{timestamp}.html"
     html_path = os.path.join(client_dir, html_name)
 
-    html_content = generate_html_dashboard(result)
-
     with open(html_path, "w", encoding="utf-8") as f:
-        f.write(html_content)
+        f.write(generate_html_dashboard(result))
 
-    # 🔥 ALTERAÇÃO PRINCIPAL
+    try:
+        send_email_lead(
+            company=company,
+            client=client,
+            email=email,
+            phone=phone,
+            domain=domain
+        )
+    except Exception as e:
+        print("EMAIL ERROR:", str(e))
+
     return {
-        "html_url": f"/reports/{safe_domain}/{html_name}"
+        "html_url": f"/reports/{safe_domain}/{html_name}",
+        "pdf_url": f"/reports/{safe_domain}/{pdf_name}",
+        "score": result.get("score"),
+        "risk": result.get("risk")
     }

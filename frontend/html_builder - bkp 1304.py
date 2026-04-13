@@ -4,7 +4,7 @@ import json
 
 def generate_html_dashboard(scan_result: dict) -> str:
     target = escape(str(scan_result.get("target", "-")))
-    json_data = json.dumps(scan_result).replace("</", "<\\/")
+    json_data = json.dumps(scan_result)
 
     return f"""
 <!DOCTYPE html>
@@ -349,45 +349,20 @@ if (!lgpdFindings.length) {{
 
 // ACTION
 const actionDiv = document.getElementById("actionPlan");
+(data.findings || [])
+    .filter(f => ["high", "medium", "critical"].includes(f.severity))
+    .forEach(f => {{
+        actionDiv.innerHTML += `<div class="action-block">${{f.recommendation || ""}}</div>`;
+    }});
 
-if (!data.action_plan || data.action_plan.length === 0) {
-    actionDiv.innerHTML = `
-        <div class="action-block">
-            Nenhuma ação necessária para atingir o objetivo selecionado.
-        </div>
-    `;
-} else {
-    data.action_plan.forEach(action => {
-        actionDiv.innerHTML += `
-            <div class="action-block">
-                <strong>${action.title}</strong><br>
-                ${action.description}<br><br>
-                <small>
-                    Esforço: ${action.effort} | Impacto: ${action.impact}
-                </small>
-            </div>
-        `;
-    });
-}
 // MELHORIA
 const improveDiv = document.getElementById("scoreImprovement");
+(data.findings || []).forEach(f => {{
+    if (["high", "medium", "critical"].includes(f.severity)) {{
+        improveDiv.innerHTML += `<div>${{f.title}} → ${{f.recommendation || ""}}</div>`;
+    }}
+}});
 
-improveDiv.innerHTML = `
-    <strong>Score atual:</strong> ${data.current_grade || "-"}<br>
-    <strong>Objetivo:</strong> ${data.target_grade || "-"}<br><br>
-`;
-
-if (data.action_plan && data.action_plan.length > 0) {
-    data.action_plan.forEach(action => {
-        improveDiv.innerHTML += `
-            <div style="margin-bottom:8px;">
-                → ${action.title}
-            </div>
-        `;
-    });
-} else {
-    improveDiv.innerHTML += "Nenhuma melhoria necessária.";
-}
 // CHARTS
 new Chart(document.getElementById('scoreChart'), {{
     type: 'doughnut',

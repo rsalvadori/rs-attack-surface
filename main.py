@@ -137,6 +137,95 @@ def get_top_findings(findings, limit=3):
 
 
 # =========================
+# SCORE GRADE
+# =========================
+def get_score_grade(score):
+    if score >= 90: return "A"
+    elif score >= 80: return "B"
+    elif score >= 70: return "C"
+    elif score >= 60: return "D"
+    else: return "E"
+
+
+# =========================
+# ACTION MAP
+# =========================
+ACTION_MAP = {
+    "missing hsts": {
+        "title": "Implementar HSTS",
+        "description": "Configurar Strict-Transport-Security no servidor",
+        "effort": "baixo",
+        "impact": "alto"
+    },
+    "missing csp": {
+        "title": "Implementar Content Security Policy",
+        "description": "Definir políticas de carregamento de scripts e recursos",
+        "effort": "medio",
+        "impact": "alto"
+    },
+    "missing x-frame-options": {
+        "title": "Adicionar proteção contra clickjacking",
+        "description": "Configurar header X-Frame-Options",
+        "effort": "baixo",
+        "impact": "medio"
+    },
+    "missing x-content-type-options": {
+        "title": "Evitar MIME sniffing",
+        "description": "Configurar X-Content-Type-Options: nosniff",
+        "effort": "baixo",
+        "impact": "medio"
+    }
+}
+
+
+
+
+# =========================
+# ACTION PLAN
+# =========================
+def generate_action_plan(findings, current_score, target_grade):
+
+    grade_target_score = {
+        "A": 90,
+        "B": 80,
+        "C": 70,
+        "D": 60
+    }
+
+    target_score = grade_target_score.get(target_grade, 90)
+    needed_improvement = target_score - current_score
+
+    severity_weight = {
+        "critical": 30,
+        "high": 25,
+        "medium": 15,
+        "low": 5
+    }
+
+    actions = []
+    accumulated = 0
+
+    sorted_findings = sorted(
+        findings,
+        key=lambda x: severity_weight.get(x.get("severity","low"),0),
+        reverse=True
+    )
+
+    for f in sorted_findings:
+        key = f.get("title","").lower()
+
+        if key in ACTION_MAP:
+            actions.append(ACTION_MAP[key])
+            accumulated += severity_weight.get(f.get("severity"), 5)
+
+        if accumulated >= needed_improvement:
+            break
+
+    return actions
+
+
+
+# =========================
 # CORE
 # =========================
 def execute_scan(domain: str):
@@ -209,6 +298,7 @@ def execute_scan(domain: str):
 async def scan_report(request: Request):
 
     body = await request.json()
+    target_grade = body.get("target_grade", "B")
 
     domain_input = body.get("domain")
     company = body.get("company", "-")
@@ -222,6 +312,17 @@ async def scan_report(request: Request):
         raise HTTPException(status_code=400, detail="Domínio inválido.")
 
     result = execute_scan(domain)
+    current_grade = get_score_grade(result["score"])
+
+    action_plan = generate_action_plan(
+        result["findings"],
+        result["score"],
+        target_grade
+    )
+
+    result["current_grade"] = current_grade
+    result["target_grade"] = target_grade
+    result["action_plan"] = action_plan
 
     safe_domain = re.sub(r"[^a-zA-Z0-9\-]", "_", domain)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -254,5 +355,8 @@ async def scan_report(request: Request):
         "html_url": f"/reports/{safe_domain}/{html_name}",
         "pdf_url": f"/reports/{safe_domain}/{pdf_name}",
         "score": result.get("score"),
-        "risk": result.get("risk")
+        "risk": result.get("risk"),
+        "current_grade": result.get("current_grade"),
+        "target_grade": result.get("target_grade"),
+        "action_plan": result.get("action_plan")
     }
