@@ -8,31 +8,32 @@ def run_nuclei(domain: str) -> list:
 
     NUCLEI_PATH = shutil.which("nuclei") or "nuclei"
 
-command = [
-    NUCLEI_PATH,
-    "-u", target,
+    command = [
+        NUCLEI_PATH,
+        "-u", target,
 
-    # 🔥 ESCOPOS MAIS LEVES E RELEVANTES
-    "-tags", "misconfig,exposure,ssl",
+        # 🔥 ESCOPOS MAIS LEVES E RELEVANTES
+        "-tags", "misconfig,exposure,ssl",
 
-    # 🔒 CONTROLE REAL (mais estável)
-    "-rl", "1",          # rate limit baixo (stealth)
-    "-c", "2",           # concorrência baixa
-    "-bs", "2",          # batch size menor
+        # 🔒 CONTROLE REAL (mais estável)
+        "-rl", "1",
+        "-c", "2",
+        "-bs", "2",
 
-    # ⏱️ TEMPO
-    "-timeout", "15",    # aumenta timeout por request
-    "-retries", "1",
+        # ⏱️ TEMPO
+        "-timeout", "15",
+        "-retries", "1",
 
-    # 🧠 PERFORMANCE
-    "-no-interactsh",    # evita DNS callbacks (pesado!)
-    "-no-color",
+        # 🧠 PERFORMANCE
+        "-no-interactsh",
+        "-no-color",
 
-    # OUTPUT
-    "-silent",
-    "-nc",
-    "-j"
-]
+        # OUTPUT
+        "-silent",
+        "-nc",
+        "-j"
+    ]
+
     print("TARGET NUCLEI:", target)
     print("COMANDO:", " ".join(command))
 
@@ -44,17 +45,15 @@ command = [
     )
 
     try:
-        stdout, stderr = process.communicate(timeout=300)
+        stdout, stderr = process.communicate(timeout=120)
     except subprocess.TimeoutExpired:
         process.kill()
         stdout, stderr = process.communicate()
-        print("TIMEOUT - PARTIAL STDOUT:", stdout[:500])
+        print("TIMEOUT - PARTIAL STDOUT:", (stdout or "")[:500])
 
     stdout = (stdout or "").strip()
 
     print("STDOUT PREVIEW:", stdout[:500])
-
-    # 🔥 NÃO CONFIA MAIS EM returncode / stderr
 
     if not stdout:
         return [{
@@ -69,11 +68,9 @@ command = [
     for line in stdout.splitlines():
         line = line.strip()
 
-        # ignora linhas sem JSON
         if "{" not in line:
             continue
 
-        # pega apenas a parte JSON
         json_part = line[line.find("{"):]
 
         try:
@@ -95,7 +92,6 @@ command = [
         except Exception:
             continue
 
-    # 🔥 fallback se não parseou nada
     if not findings:
         return [{
             "title": "Scan executado sem findings parseáveis",
