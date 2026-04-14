@@ -8,26 +8,31 @@ def run_nuclei(domain: str) -> list:
 
     NUCLEI_PATH = shutil.which("nuclei") or "nuclei"
 
-    command = [
-        NUCLEI_PATH,
-        "-u", target,
+command = [
+    NUCLEI_PATH,
+    "-u", target,
 
-    # 🔥 LIMITADO (ESSENCIAL)
-        "-templates", "/root/.nuclei-templates/http/exposures/",
+    # 🔥 ESCOPOS MAIS LEVES E RELEVANTES
+    "-tags", "misconfig,exposure,ssl",
 
-    # 🔒 CONTROLE
-        "-rl", "2",
-        "-c", "5",
-        "-bs", "5",
-        "-timeout", "10",
-        "-retries", "1",
+    # 🔒 CONTROLE REAL (mais estável)
+    "-rl", "1",          # rate limit baixo (stealth)
+    "-c", "2",           # concorrência baixa
+    "-bs", "2",          # batch size menor
+
+    # ⏱️ TEMPO
+    "-timeout", "15",    # aumenta timeout por request
+    "-retries", "1",
+
+    # 🧠 PERFORMANCE
+    "-no-interactsh",    # evita DNS callbacks (pesado!)
+    "-no-color",
 
     # OUTPUT
-        "-silent",
-        "-nc",
-        "-j"
-    ]
-
+    "-silent",
+    "-nc",
+    "-j"
+]
     print("TARGET NUCLEI:", target)
     print("COMANDO:", " ".join(command))
 
