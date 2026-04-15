@@ -176,4 +176,21 @@ def analyze_lgpd(domain: str) -> list[dict]:
             "recommendation": "Implementar banner de cookies."
         })
 
+    print("\n===== LGPD ANALYZER RESULT =====")
+    print(f"DOMAIN: {domain}")
+    print(f"PAGES COLETADAS: {len(pages)}")
+    print(f"TAMANHO FULL: {len(full)}")
+
+    print("\nDETECCAO:")
+    print(f"HAS POLICY: {has_policy}")
+    print(f"HAS PORTAL: {has_portal}")
+    print(f"HAS DPO: {has_dpo}")
+    print(f"HAS COOKIES: {has_cookies}")
+
+    print("\nFINDINGS:")
+    for f in findings:
+        print(f"- {f['title']} ({f['severity']})")
+
+    print("================================\n")
+
     return findings
