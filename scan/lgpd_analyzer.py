@@ -4,33 +4,24 @@ import re
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-
 TIMEOUT = 5
-MAX_LINKS = 10  # controle para não pesar
 
-print(">>> LGPD ANALYZER NOVO EXECUTANDO <<<")
 
 def fetch(url: str):
     try:
         r = requests.get(url, timeout=TIMEOUT, verify=False)
-        return r.text.lower() if r.status_code == 200 else ""
+        if r.status_code == 200:
+            return r.text.lower()
     except:
-        return ""
+        pass
+    return ""
 
 
 def extract_links(html: str):
-    links = re.findall(r'href=["\\\'](.*?)["\\\']', html)
-    clean = []
-
-    for l in links:
-        if l.startswith("#") or "javascript:" in l:
-            continue
-        clean.append(l)
-
-    return list(set(clean))
+    return list(set(re.findall(r'href=["\\\'](.*?)["\\\']', html)))
 
 
-def normalize_link(domain: str, link: str):
+def normalize(domain: str, link: str):
     if link.startswith("http"):
         return link
     if link.startswith("/"):
@@ -39,127 +30,106 @@ def normalize_link(domain: str, link: str):
 
 
 def analyze_lgpd(domain: str) -> list[dict]:
+
     findings = []
+    base = f"https://{domain}"
 
-    base_url = f"https://{domain}"
+    pages = []
 
     # =========================
-    # 🔹 HOME
+    # 1. HOME
     # =========================
-    html = fetch(base_url)
-
+    html = fetch(base)
     if not html:
         return findings
 
+    pages.append(html)
+
+    # =========================
+    # 2. LINKS DO SITE
+    # =========================
     links = extract_links(html)
 
-    # =========================
-    # 🔹 FILTRAR LINKS RELEVANTES
-    # =========================
     keywords = [
-        "privacidade",
-        "privacy",
-        "lgpd",
-        "dados",
-        "cookies",
-        "termos",
-        "policy"
+        "privacidade", "privacy", "lgpd", "dados",
+        "policy", "cookies", "termos"
     ]
 
-    relevant_links = [
-        l for l in links if any(k in l.lower() for k in keywords)
+    for l in links:
+        if any(k in l.lower() for k in keywords):
+            pages.append(fetch(normalize(domain, l)))
+
+    # =========================
+    # 3. 🔥 FORÇA CAMINHOS (RESOLVE SEU CASO)
+    # =========================
+    forced_paths = [
+        "/politica-de-privacidade",
+        "/politica",
+        "/privacy",
+        "/privacidade",
+        "/lgpd",
+        "/termos",
+        "/termos-de-uso"
     ]
 
-    # limita para não explodir tempo
-    relevant_links = relevant_links[:MAX_LINKS]
-
-    pages_content = [html]
+    for p in forced_paths:
+        pages.append(fetch(base + p))
 
     # =========================
-    # 🔹 CRAWL LEVE
+    # 4. TEXTO FINAL
     # =========================
-    for link in relevant_links:
-        full_url = normalize_link(domain, link)
-        content = fetch(full_url)
-
-        if content:
-            pages_content.append(content)
-
-    # junta tudo
-    full_text = " ".join(pages_content)
+    full = " ".join([p for p in pages if p])
 
     # =========================
-    # 🔹 DETECÇÕES
+    # 5. DETECÇÃO REAL
     # =========================
 
-    # ✔ Política
-    has_policy = any(k in full_text for k in [
+    has_policy = any(x in full for x in [
         "política de privacidade",
         "privacy policy",
         "dados pessoais"
     ])
 
-    # ✔ Portal do titular
-    has_portal = any(k in full_text for k in [
+    has_portal = any(x in full for x in [
         "portal do titular",
         "direitos do titular",
-        "acesso aos dados",
         "solicitar dados"
     ])
 
-    # ✔ DPO / contato real
-    has_dpo = any(k in full_text for k in [
+    has_dpo = any(x in full for x in [
         "encarregado",
         "dpo",
-        "privacidade@",
-        "@",
-        "contato"
+        "privacidade@"
     ])
 
-    # ✔ Cookies
-    has_cookies = any(k in full_text for k in [
-        "cookies",
-        "consent",
-        "aceitar cookies",
-        "gerenciar cookies"
-    ])
+    has_cookies = "cookie" in full
 
     # =========================
-    # 🔹 LÓGICA CORRETA
+    # 6. LÓGICA CORRETA
     # =========================
 
-    # 🚨 Só aponta ausência TOTAL se realmente não existir nada
-    if not (has_policy or has_portal):
-        findings.append({
-            "title": "Ausência de mecanismos mínimos de LGPD",
-            "severity": "high",
-            "impact": "Não foram identificados elementos mínimos de privacidade no site.",
-            "recommendation": "Implementar política de privacidade e canal do titular."
-        })
-        return findings  # aqui pode parar
-
-    # ⚠️ Parcial (caso mais realista)
+    # 🚨 SÓ ACUSA AUSÊNCIA SE REALMENTE NÃO EXISTIR
     if not has_policy:
         findings.append({
-            "title": "Política de privacidade não identificada claramente",
+            "title": "Política de privacidade não identificada",
             "severity": "medium",
-            "impact": "A política pode não estar acessível ou visível ao usuário.",
-            "recommendation": "Garantir link claro para política de privacidade."
+            "impact": "Não foi possível localizar política de privacidade acessível.",
+            "recommendation": "Garantir link visível para política de privacidade."
         })
 
     if not has_portal:
         findings.append({
-            "title": "Portal do titular não identificado",
+            "title": "Canal do titular não identificado",
             "severity": "medium",
-            "impact": "Pode dificultar o exercício dos direitos do titular.",
-            "recommendation": "Disponibilizar canal estruturado para requisições LGPD."
+            "impact": "Pode dificultar exercício de direitos do titular.",
+            "recommendation": "Disponibilizar canal de requisição de dados."
         })
 
     if not has_dpo:
         findings.append({
-            "title": "Canal de contato de privacidade não identificado",
+            "title": "Contato de privacidade não identificado",
             "severity": "low",
-            "impact": "Usuários podem não ter canal claro para solicitações.",
+            "impact": "Usuário pode não ter canal direto para LGPD.",
             "recommendation": "Divulgar e-mail ou canal do encarregado."
         })
 
@@ -167,12 +137,8 @@ def analyze_lgpd(domain: str) -> list[dict]:
         findings.append({
             "title": "Aviso de cookies não identificado",
             "severity": "low",
-            "impact": "Pode impactar transparência no uso de dados.",
+            "impact": "Pode impactar transparência de coleta.",
             "recommendation": "Implementar banner de cookies."
         })
 
     return findings
-
-print("LINKS ENCONTRADOS:", links)
-print("LINKS RELEVANTES:", relevant_links)
-print("TEXTO FINAL (TRECHO):", full_text[:500])
