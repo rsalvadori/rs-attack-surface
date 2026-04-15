@@ -137,6 +137,83 @@ def get_top_findings(findings, limit=3):
 
 
 # =========================
+# MATURIDADE / CLASSIFICACAO
+# =========================
+def count_severities(findings: list[dict]) -> dict:
+    counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+
+    for f in findings:
+        sev = str(f.get("severity", "info")).lower()
+        if sev in counts:
+            counts[sev] += 1
+
+    return counts
+
+
+def is_lgpd_finding(f: dict) -> bool:
+    text = " ".join([
+        str(f.get("title", "")),
+        str(f.get("impact", "")),
+        str(f.get("recommendation", ""))
+    ]).lower()
+
+    keywords = [
+        "lgpd",
+        "privacidade",
+        "privacy",
+        "cookie",
+        "cookies",
+        "gdpr",
+        "consent",
+        "encarregado",
+        "dpo",
+        "titular",
+        "política de privacidade",
+        "aviso de cookies"
+    ]
+
+    return any(k in text for k in keywords)
+
+
+def count_lgpd_findings(findings: list[dict]) -> int:
+    return sum(1 for f in findings if is_lgpd_finding(f))
+
+
+def evaluate_grade(scan_result: dict) -> str:
+    score = int(scan_result.get("score", 0))
+    findings = scan_result.get("findings", [])
+
+    counts = count_severities(findings)
+    critical = counts["critical"]
+    high = counts["high"]
+
+    if score >= 90 and critical == 0 and high == 0:
+        return "A"
+
+    if score >= 80 and critical == 0 and high <= 1:
+        return "B"
+
+    if score >= 70 and critical == 0:
+        return "C"
+
+    if score >= 60:
+        return "D"
+
+    return "E"
+
+
+def get_allowed_upgrade_targets(current_grade: str) -> list[str]:
+    mapping = {
+        "E": ["D", "C", "B", "A"],
+        "D": ["C", "B", "A"],
+        "C": ["B", "A"],
+        "B": ["A"],
+        "A": []
+    }
+    return mapping.get(current_grade, [])
+
+
+# =========================
 # CORE
 # =========================
 def execute_scan(domain: str):
@@ -168,11 +245,6 @@ def execute_scan(domain: str):
         pass
 
     try:
-        findings.extend(analyze_nuclei(domain) or [])
-    except Exception:
-        pass
-
-    try:
         findings.extend(analyze_lgpd(domain) or [])
     except Exception:
         pass
@@ -187,7 +259,23 @@ def execute_scan(domain: str):
     except Exception:
         pass
 
+    try:
+        findings.extend(analyze_nuclei(domain) or [])
+    except Exception:
+        pass
+
+
     score, risk, sec, priv = calculate_scores(findings)
+
+    current_grade = evaluate_grade({
+        "score": score,
+        "findings": findings
+    })
+
+    severity_counts = count_severities(findings)
+    lgpd_count = count_lgpd_findings(findings)
+
+    allowed_upgrade_targets = get_allowed_upgrade_targets(current_grade)
 
     return {
         "target": domain,
@@ -198,7 +286,11 @@ def execute_scan(domain: str):
         "findings": findings,
         "top_findings": get_top_findings(findings),
         "infra": infra_data,
-        "raw_httpx": httpx_data
+        "raw_httpx": httpx_data,
+        "current_grade": current_grade,
+        "allowed_upgrade_targets": allowed_upgrade_targets,
+        "severity_counts": severity_counts,
+        "lgpd_findings_count": lgpd_count
     }
 
 

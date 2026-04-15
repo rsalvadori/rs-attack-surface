@@ -109,20 +109,6 @@ canvas {{
 
 <div class="header">
     <div class="title">RS Attack Surface</div>
-
-    <button onclick="downloadPDF()"
-        style="
-            background: linear-gradient(135deg, #22c55e, #16a34a);
-            border: none;
-            padding: 10px 18px;
-            border-radius: 999px;
-            color: white;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 13px;
-        ">
-        ⬇ Baixar PDF
-    </button>
 </div>
 
 <div class="card">
@@ -226,15 +212,7 @@ canvas {{
 
 <script>
 const data = {json_data};
-
-// =========================
-// BASE
-// =========================
 const findings = data.findings || [];
-
-function normalizeSeverity(s) {{
-    return (s || "").toLowerCase();
-}}
 
 // =========================
 // SCORE
@@ -247,12 +225,6 @@ function getGrade(score) {{
     return "E";
 }}
 
-function getColor(score) {{
-    if (score >= 80) return "#16a34a";
-    if (score >= 60) return "#f59e0b";
-    return "#dc2626";
-}}
-
 const score = data.score || 0;
 const currentGrade = getGrade(score);
 
@@ -260,10 +232,82 @@ document.getElementById("scoreValue").innerText = score;
 document.getElementById("scoreGrade").innerText = currentGrade;
 document.getElementById("currentGrade").innerText = currentGrade;
 document.getElementById("riskLevel").innerText = (data.risk || "").toUpperCase();
-document.getElementById("scoreCircle").style.background = getColor(score);
 
 // =========================
-// SELECT DINÂMICO
+// KPIs
+// =========================
+document.getElementById("kpiVuln").innerText = findings.length;
+document.getElementById("kpiInfra").innerText = data.infra?.ips?.length || 0;
+document.getElementById("kpiScore").innerText = score;
+
+const lgpdCount = findings.filter(f => 
+    (f.title || "").toLowerCase().includes("lgpd") ||
+    (f.title || "").toLowerCase().includes("privacidade")
+).length;
+
+document.getElementById("kpiLgpd").innerText = lgpdCount;
+
+// =========================
+// RESUMO
+// =========================
+document.getElementById("executiveSummary").innerText =
+    findings.length === 0
+    ? "Nenhuma vulnerabilidade relevante identificada."
+    : "Foram identificados pontos de melhoria no ambiente.";
+
+// =========================
+// TOP
+// =========================
+const topList = document.getElementById("topFindings");
+(data.top_findings || []).forEach(f => {{
+    topList.innerHTML += `<li>${{f.title}}</li>`;
+}});
+
+// =========================
+// INFRA
+// =========================
+const infraDiv = document.getElementById("infraContainer");
+(data.infra?.ips || []).forEach(ip => {{
+    infraDiv.innerHTML += `<div>${{ip}}</div>`;
+}});
+
+// =========================
+// VULN
+// =========================
+const vulnDiv = document.getElementById("vulnContainer");
+findings.forEach(f => {{
+    vulnDiv.innerHTML += `
+        <div class="action-block">
+            <strong>${{f.title}}</strong><br>
+            ${{f.impact || ""}}
+        </div>
+    `;
+}});
+
+// =========================
+// ACTION
+// =========================
+const actionDiv = document.getElementById("actionPlan");
+findings.forEach(f => {{
+    actionDiv.innerHTML += `
+        <div class="action-block">
+            ${{f.recommendation || ""}}
+        </div>
+    `;
+}});
+
+// =========================
+// LGPD
+// =========================
+const lgpdDiv = document.getElementById("lgpdContainer");
+findings.forEach(f => {{
+    if ((f.title || "").toLowerCase().includes("lgpd")) {{
+        lgpdDiv.innerHTML += `<div class="action-block">${{f.title}}</div>`;
+    }}
+}});
+
+// =========================
+// SELECT
 // =========================
 const upgradePaths = {{
     "E": ["D","C","B","A"],
@@ -282,54 +326,13 @@ const select = document.getElementById("targetGradeSelect");
     select.appendChild(opt);
 }});
 
-if (select.options.length > 0) {{
-    select.value = select.options[0].value;
-}}
-
 // =========================
-// REGRAS CORRETAS
-// =========================
-const rules = {{
-    "A": ["critical","high","medium"],
-    "B": ["critical","high"],
-    "C": ["critical"],
-    "D": [],
-}};
-
-// =========================
-// MELHORIA CORRETA
+// MELHORIA
 // =========================
 function recalculatePlan() {{
     const target = select.value;
     const div = document.getElementById("scoreImprovement");
-
-    div.innerHTML = "";
-
-    const needed = rules[target] || [];
-
-    const blockers = findings.filter(f =>
-        needed.includes(normalizeSeverity(f.severity))
-    );
-
-    div.innerHTML += `<strong>${{currentGrade}} → ${{target}}</strong><br><br>`;
-
-    if (blockers.length === 0) {{
-        div.innerHTML += `
-            <div class="action-block">
-                Nenhuma ação necessária para atingir este nível.
-            </div>
-        `;
-        return;
-    }}
-
-    blockers.forEach(f => {{
-        div.innerHTML += `
-            <div class="action-block">
-                <strong>${{f.title}}</strong><br>
-                ${{f.recommendation || ""}}
-            </div>
-        `;
-    }});
+    div.innerHTML = `<strong>${{currentGrade}} → ${{target}}</strong>`;
 }}
 
 recalculatePlan();
