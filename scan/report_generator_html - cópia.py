@@ -100,28 +100,27 @@ def generate_pdf_report(scan_result: dict, output_path: str):
     lgpd_findings = [
         f for f in findings
         if any(k in str(f.get("title", "")).lower() for k in [
-            "privacidade", "lgpd", "cookie", "cookies", "consentimento", "dados"
+            "privacidade", "lgpd", "cookies", "encarregado",
+            "privacy", "cookie", "consent", "gdpr"
         ])
     ]
 
-    if lgpd_findings:
-        lgpd_section = f"""
-        <div class="card">
-            <div class="section-title">Privacidade e LGPD</div>
-            {render_findings(lgpd_findings, include_recommendation=True)}
-        </div>
-        """
-    else:
-        lgpd_section = """
-        <div class="card">
-            <div class="section-title">Privacidade e LGPD</div>
-            <div class="muted">
-                Não foram identificadas evidências claras de mecanismos de transparência,
-                como política de privacidade visível, gestão de consentimento de cookies
-                ou canal estruturado de atendimento ao titular de dados.
-            </div>
-        </div>
-        """
+    if not lgpd_findings:
+        missing_lgpd = {
+            "title": "Ausência de mecanismos de LGPD",
+            "severity": "high",
+            "impact": "O site não apresenta política de privacidade, gestão de cookies ou canal do titular.",
+            "recommendation": "Implementar política de privacidade, banner de cookies e canal de atendimento LGPD."
+        }
+        lgpd_findings.append(missing_lgpd)
+        findings.append(missing_lgpd)
+
+    lgpd_section = f"""
+    <div class="card">
+        <div class="section-title">Privacidade e LGPD</div>
+        {render_findings(lgpd_findings, include_recommendation=True)}
+    </div>
+    """
 
     infra_rows = []
     if ips:
@@ -187,11 +186,29 @@ def generate_pdf_report(scan_result: dict, output_path: str):
         </div>
         """
 
-    vulnerabilities_text = (
-        "A análise automatizada foi executada dentro de um escopo controlado e priorizando performance. "
-        "A ausência de achados críticos não elimina a possibilidade de exploração, especialmente em ambientes com superfície exposta, "
-        "serviços acessíveis publicamente e lacunas de hardening."
-    )
+    # =========================
+    # VULNERABILIDADES
+    # =========================
+    if not findings:
+        vulnerabilities_text = (
+            "A análise automatizada não identificou evidências relevantes dentro do escopo analisado. "
+            "Ainda assim, recomenda-se monitoramento contínuo e validações periódicas."
+        )
+    elif any(f.get("severity") in ["critical", "high"] for f in findings):
+        vulnerabilities_text = (
+            "Foram identificados achados relevantes que podem impactar diretamente a segurança do ambiente, "
+            "exigindo priorização imediata na mitigação dos riscos identificados."
+        )
+    elif any(f.get("severity") in ["medium", "low"] for f in findings):
+        vulnerabilities_text = (
+            "Foram identificadas fragilidades de configuração e hardening que aumentam a superfície de ataque. "
+            "Esses pontos devem ser tratados para elevar o nível de segurança."
+        )
+    else:
+        vulnerabilities_text = (
+            "Foram identificadas tecnologias e características do ambiente, incluindo mecanismos de proteção, "
+            "sem evidência de falhas críticas dentro do escopo analisado."
+        )
 
     risk_badge_color = "#f59e0b"
     if risk == "LOW":

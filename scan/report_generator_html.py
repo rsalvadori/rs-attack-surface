@@ -99,21 +99,23 @@ def generate_pdf_report(scan_result: dict, output_path: str):
     # =========================
     lgpd_findings = [
         f for f in findings
-        if any(k in str(f.get("title", "")).lower() for k in [
+        if any(k in (
+            str(f.get("title", "")) +
+            str(f.get("impact", "")) +
+            str(f.get("recommendation", ""))
+        ).lower() for k in [
             "privacidade", "lgpd", "cookies", "encarregado",
-            "privacy", "cookie", "consent", "gdpr"
+            "privacy", "cookie", "consent", "gdpr", "titular"
         ])
     ]
 
     if not lgpd_findings:
-        missing_lgpd = {
-            "title": "Ausência de mecanismos de LGPD",
-            "severity": "high",
-            "impact": "O site não apresenta política de privacidade, gestão de cookies ou canal do titular.",
-            "recommendation": "Implementar política de privacidade, banner de cookies e canal de atendimento LGPD."
-        }
-        lgpd_findings.append(missing_lgpd)
-        findings.append(missing_lgpd)
+        lgpd_findings = [{
+            "title": "Sem achados relevantes de LGPD",
+            "severity": "info",
+            "impact": "Nenhum risco regulatório relevante identificado automaticamente.",
+            "recommendation": ""
+        }]
 
     lgpd_section = f"""
     <div class="card">
