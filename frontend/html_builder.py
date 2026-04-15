@@ -482,12 +482,12 @@ function recalculatePlan() {{
 
     div.innerHTML = "";
 
-    const rules = {
+    const rules = {{
         "D": ["critical"],
         "C": ["critical", "high"],
             "B": ["critical", "high", "medium"],
     "A": ["critical", "high", "medium", "low"]
-    };
+    }};
 
     const needed = rules[target] || [];
     const blockers = uniqByTitle(findings.filter(f =>
