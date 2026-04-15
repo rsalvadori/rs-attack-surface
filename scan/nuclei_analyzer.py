@@ -24,7 +24,7 @@ def run_nuclei(domain: str) -> list:
         "-bs", "1",
 
         # ⏱️ TEMPO CONTROLADO
-        "-timeout", "30",
+        "-timeout", "5",
         "-retries", "0",
 
         # 🧠 EVITA TRAVAMENTO
@@ -48,7 +48,7 @@ def run_nuclei(domain: str) -> list:
     )
 
     try:
-        stdout, stderr = process.communicate(timeout=90)
+        stdout, stderr = process.communicate(timeout=20)
     except subprocess.TimeoutExpired:
         process.kill()
         print("NUCLEI TIMEOUT - encerrado")
