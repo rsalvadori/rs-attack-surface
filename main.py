@@ -244,14 +244,19 @@ def execute_scan(domain: str):
     except Exception:
         pass
 
+    print(">>> EXECUTANDO LGPD ANALYZER <<<")
+
     try:
-        print(">>> EXECUTANDO LGPD ANALYZER <<<")
         lgpd_results = analyze_lgpd(domain)
+        print(">>> LGPD RESULTS:", lgpd_results)
 
     except Exception as e:
         print("ERRO LGPD ANALYZER:", str(e))
-        print(">>> LGPD RESULTS:", lgpd_results)
-        findings.extend(lgpd_results or [])
+        lgpd_results = []
+
+    # 🔥 SEMPRE adiciona
+    findings.extend(lgpd_results)
+    
     try:
         infra_data = analyze_infrastructure(domain)
     except Exception:
