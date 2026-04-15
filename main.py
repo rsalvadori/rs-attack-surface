@@ -239,20 +239,21 @@ def execute_scan(domain: str):
     if "x-content-type-options" not in headers_raw:
         findings.append({"title": "Missing X-Content-Type-Options", "severity": "low"})
 
-    try:
-        findings.extend(analyze_tls(domain) or [])
-    except Exception:
-        pass
-
+    # =========================
+    # LGPD (CORRIGIDO)
+    # =========================
     print(">>> EXECUTANDO LGPD ANALYZER <<<")
+
+    lgpd_results = []
 
     try:
         lgpd_results = analyze_lgpd(domain)
-        print(">>> LGPD RESULTS:", lgpd_results)
-
     except Exception as e:
         print("ERRO LGPD ANALYZER:", str(e))
-        lgpd_results = []
+
+    print(">>> LGPD RESULTS:", lgpd_results)
+
+    findings.extend(lgpd_results)
 
     # 🔥 SEMPRE adiciona
     findings.extend(lgpd_results)
