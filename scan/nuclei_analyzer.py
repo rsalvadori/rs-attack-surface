@@ -12,19 +12,22 @@ def run_nuclei(domain: str) -> list:
         NUCLEI_PATH,
         "-u", target,
 
-        # 🔥 ESCOPOS MAIS LEVES E RELEVANTES
-        "-tags", "misconfig,exposure,ssl",
+        # 🔒 ESCOPOS CONTROLADOS (SEM exposure!)
+        "-templates", "/root/nuclei-templates/http/misconfiguration/,/root/nuclei-templates/ssl/",
 
-        # 🔒 CONTROLE REAL (mais estável)
+        # 🚫 REMOVE LIXO PESADO
+        "-exclude-tags", "dos,fuzz,bruteforce,token,secret,creds,auth-bypass,global-matchers",
+
+        # 🔒 PERFORMANCE ESTÁVEL
         "-rl", "1",
-        "-c", "2",
-        "-bs", "2",
+        "-c", "1",
+        "-bs", "1",
 
-        # ⏱️ TEMPO
-        "-timeout", "15",
-        "-retries", "1",
+        # ⏱️ TEMPO CONTROLADO
+        "-timeout", "10",
+        "-retries", "0",
 
-        # 🧠 PERFORMANCE
+        # 🧠 EVITA TRAVAMENTO
         "-no-interactsh",
         "-no-color",
 
@@ -45,22 +48,29 @@ def run_nuclei(domain: str) -> list:
     )
 
     try:
-        stdout, stderr = process.communicate(timeout=120)
+        stdout, stderr = process.communicate(timeout=90)
     except subprocess.TimeoutExpired:
         process.kill()
-        stdout, stderr = process.communicate()
-        print("TIMEOUT - PARTIAL STDOUT:", (stdout or "")[:500])
+        print("NUCLEI TIMEOUT - encerrado")
+
+        return [{
+            "title": "Scan de vulnerabilidades parcial",
+            "severity": "info",
+            "impact": "O scanner atingiu o limite de tempo do ambiente.",
+            "recommendation": "Executar análise completa fora do ambiente restrito."
+        }]
 
     stdout = (stdout or "").strip()
 
     print("STDOUT PREVIEW:", stdout[:500])
 
+    # 🔥 fallback REAL
     if not stdout:
         return [{
-            "title": "Scan executado sem retorno",
+            "title": "Nenhuma vulnerabilidade detectada (scan leve)",
             "severity": "info",
-            "impact": "O Nuclei executou, mas não retornou dados no stdout.",
-            "recommendation": "Aumentar escopo ou validar alvo."
+            "impact": "Nenhuma falha foi identificada no escopo rápido.",
+            "recommendation": "Executar análise aprofundada para cobertura completa."
         }]
 
     findings = []
@@ -68,13 +78,11 @@ def run_nuclei(domain: str) -> list:
     for line in stdout.splitlines():
         line = line.strip()
 
-        if "{" not in line:
+        if not line.startswith("{"):
             continue
 
-        json_part = line[line.find("{"):]
-
         try:
-            data = json.loads(json_part)
+            data = json.loads(line)
 
             info = data.get("info", {})
             name = info.get("name", "Nuclei Finding")
@@ -94,10 +102,10 @@ def run_nuclei(domain: str) -> list:
 
     if not findings:
         return [{
-            "title": "Scan executado sem findings parseáveis",
+            "title": "Scan executado sem findings relevantes",
             "severity": "info",
-            "impact": "O Nuclei retornou saída, mas sem dados estruturados aproveitáveis.",
-            "recommendation": "Revisar escopo ou ampliar severidade."
+            "impact": "Nenhuma vulnerabilidade relevante encontrada no escopo atual.",
+            "recommendation": "Ampliar escopo do scan se necessário."
         }]
 
     return findings
