@@ -5,20 +5,44 @@ import re
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 TIMEOUT = 5
+MAX_LINKS = 10
 
 
 def fetch(url: str):
     try:
-        r = requests.get(url, timeout=TIMEOUT, verify=False)
-        if r.status_code == 200:
+        r = requests.get(
+            url,
+            timeout=TIMEOUT,
+            verify=False,
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+
+        # evita lixo / páginas vazias
+        if r.status_code == 200 and len(r.text) > 500:
             return r.text.lower()
+
     except:
         pass
+
     return ""
 
 
 def extract_links(html: str):
-    return list(set(re.findall(r'href=["\\\'](.*?)["\\\']', html)))
+    links = re.findall(r'href=["\\\'](.*?)["\\\']', html)
+
+    clean = []
+    for l in links:
+        if not l:
+            continue
+        if l.startswith("#"):
+            continue
+        if "javascript:" in l:
+            continue
+        if "mailto:" in l:
+            continue
+        clean.append(l)
+
+    return list(set(clean))
 
 
 def normalize(domain: str, link: str):
@@ -46,7 +70,7 @@ def analyze_lgpd(domain: str) -> list[dict]:
     pages.append(html)
 
     # =========================
-    # 2. LINKS DO SITE
+    # 2. LINKS DO SITE (CONTROLADO)
     # =========================
     links = extract_links(html)
 
@@ -55,12 +79,14 @@ def analyze_lgpd(domain: str) -> list[dict]:
         "policy", "cookies", "termos"
     ]
 
-    for l in links:
+    for l in links[:MAX_LINKS]:
         if any(k in l.lower() for k in keywords):
-            pages.append(fetch(normalize(domain, l)))
+            content = fetch(normalize(domain, l))
+            if content:
+                pages.append(content)
 
     # =========================
-    # 3. 🔥 FORÇA CAMINHOS (RESOLVE SEU CASO)
+    # 3. FORÇA CAMINHOS (CRÍTICO)
     # =========================
     forced_paths = [
         "/politica-de-privacidade",
@@ -73,22 +99,27 @@ def analyze_lgpd(domain: str) -> list[dict]:
     ]
 
     for p in forced_paths:
-        pages.append(fetch(base + p))
+        content = fetch(base + p)
+        if content:
+            pages.append(content)
 
     # =========================
     # 4. TEXTO FINAL
     # =========================
-    full = " ".join([p for p in pages if p])
+    full = " ".join(pages)
 
     # =========================
     # 5. DETECÇÃO REAL
     # =========================
 
-    has_policy = any(x in full for x in [
-        "política de privacidade",
-        "privacy policy",
-        "dados pessoais"
-    ])
+    # Política REAL (evita falso positivo)
+    has_policy = (
+        any(x in full for x in [
+            "política de privacidade",
+            "privacy policy"
+        ])
+        and "dados pessoais" in full
+    )
 
     has_portal = any(x in full for x in [
         "portal do titular",
@@ -102,13 +133,17 @@ def analyze_lgpd(domain: str) -> list[dict]:
         "privacidade@"
     ])
 
-    has_cookies = "cookie" in full
+    has_cookies = any(x in full for x in [
+        "cookie",
+        "cookies",
+        "aceitar cookies",
+        "consent"
+    ])
 
     # =========================
-    # 6. LÓGICA CORRETA
+    # 6. FINDINGS (SEM GAMBIARRA)
     # =========================
 
-    # 🚨 SÓ ACUSA AUSÊNCIA SE REALMENTE NÃO EXISTIR
     if not has_policy:
         findings.append({
             "title": "Política de privacidade não identificada",
