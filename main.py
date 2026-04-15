@@ -158,18 +158,9 @@ def is_lgpd_finding(f: dict) -> bool:
     ]).lower()
 
     keywords = [
-        "lgpd",
-        "privacidade",
-        "privacy",
-        "cookie",
-        "cookies",
-        "gdpr",
-        "consent",
-        "encarregado",
-        "dpo",
-        "titular",
-        "política de privacidade",
-        "aviso de cookies"
+        "lgpd", "privacidade", "privacy", "cookie", "cookies",
+        "gdpr", "consent", "encarregado", "dpo", "titular",
+        "política de privacidade"
     ]
 
     return any(k in text for k in keywords)
@@ -184,18 +175,13 @@ def evaluate_grade(scan_result: dict) -> str:
     findings = scan_result.get("findings", [])
 
     counts = count_severities(findings)
-    critical = counts["critical"]
-    high = counts["high"]
 
-    if score >= 90 and critical == 0 and high == 0:
+    if score >= 90 and counts["critical"] == 0 and counts["high"] == 0:
         return "A"
-
-    if score >= 80 and critical == 0 and high <= 1:
+    if score >= 80 and counts["critical"] == 0 and counts["high"] <= 1:
         return "B"
-
-    if score >= 70 and critical == 0:
+    if score >= 70 and counts["critical"] == 0:
         return "C"
-
     if score >= 60:
         return "D"
 
@@ -220,6 +206,7 @@ def execute_scan(domain: str):
 
     findings = []
 
+    # HTTPX
     try:
         httpx_data = run_httpx(domain)
     except Exception:
@@ -239,49 +226,45 @@ def execute_scan(domain: str):
     if "x-content-type-options" not in headers_raw:
         findings.append({"title": "Missing X-Content-Type-Options", "severity": "low"})
 
-    # =========================
-    # LGPD (CORRIGIDO)
-    # =========================
+    # TLS
+    try:
+        findings.extend(analyze_tls(domain) or [])
+    except Exception as e:
+        print("ERRO TLS:", str(e))
+
+    # LGPD
     print(">>> EXECUTANDO LGPD ANALYZER <<<")
-
     lgpd_results = []
-
     try:
         lgpd_results = analyze_lgpd(domain)
     except Exception as e:
-        print("ERRO LGPD ANALYZER:", str(e))
+        print("ERRO LGPD:", str(e))
 
     print(">>> LGPD RESULTS:", lgpd_results)
-
     findings.extend(lgpd_results)
 
-    # 🔥 SEMPRE adiciona
-    findings.extend(lgpd_results)
-    
+    # INFRA
     try:
         infra_data = analyze_infrastructure(domain)
     except Exception:
         infra_data = {}
 
-    try:
-        enriched = []
-        for f in findings:
-            try:
-                enriched.append(enrich_finding(f))
-            except Exception as e:
-                print("ERRO ENRICH:", str(e))
-                enriched.append(f)
+    # ENRICH
+    enriched = []
+    for f in findings:
+        try:
+            enriched.append(enrich_finding(f))
+        except Exception:
+            enriched.append(f)
+    findings = enriched
 
-        findings = enriched
-            except Exception:
-        pass
-
+    # NUCLEI
     try:
         findings.extend(analyze_nuclei(domain) or [])
-    except Exception:
-        pass
+    except Exception as e:
+        print("ERRO NUCLEI:", str(e))
 
-
+    # SCORE
     score, risk, sec, priv = calculate_scores(findings)
 
     current_grade = evaluate_grade({
@@ -291,7 +274,6 @@ def execute_scan(domain: str):
 
     severity_counts = count_severities(findings)
     lgpd_count = count_lgpd_findings(findings)
-
     allowed_upgrade_targets = get_allowed_upgrade_targets(current_grade)
 
     return {
@@ -312,20 +294,14 @@ def execute_scan(domain: str):
 
 
 # =========================
-# ENDPOINT PRINCIPAL
+# ENDPOINT
 # =========================
 @app.post("/scan-report")
 async def scan_report(request: Request):
 
     body = await request.json()
 
-    domain_input = body.get("domain")
-    company = body.get("company", "-")
-    client = body.get("client", "-")
-    phone = body.get("phone", "-")
-    email = body.get("email", "-")
-
-    domain = normalize_domain(domain_input)
+    domain = normalize_domain(body.get("domain"))
 
     if not validate_domain(domain):
         raise HTTPException(status_code=400, detail="Domínio inválido.")
@@ -350,10 +326,10 @@ async def scan_report(request: Request):
 
     try:
         send_email_lead(
-            company=company,
-            client=client,
-            email=email,
-            phone=phone,
+            company=body.get("company", "-"),
+            client=body.get("client", "-"),
+            email=body.get("email", "-"),
+            phone=body.get("phone", "-"),
             domain=domain
         )
     except Exception as e:
