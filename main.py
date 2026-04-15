@@ -245,11 +245,6 @@ def execute_scan(domain: str):
         pass
 
     try:
-        findings.extend(analyze_nuclei(domain) or [])
-    except Exception:
-        pass
-
-    try:
         findings.extend(analyze_lgpd(domain) or [])
     except Exception:
         pass
@@ -263,6 +258,12 @@ def execute_scan(domain: str):
         findings = [enrich_finding(f) for f in findings]
     except Exception:
         pass
+
+    try:
+        findings.extend(analyze_nuclei(domain) or [])
+    except Exception:
+        pass
+
 
     score, risk, sec, priv = calculate_scores(findings)
 
