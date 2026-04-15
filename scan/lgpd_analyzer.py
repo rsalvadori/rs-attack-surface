@@ -170,5 +170,7 @@ def analyze_lgpd(domain: str) -> list[dict]:
             "impact": "Pode impactar transparência no uso de dados.",
             "recommendation": "Implementar banner de cookies."
         })
-
+print("LINKS ENCONTRADOS:", links)
+print("LINKS RELEVANTES:", relevant_links)
+print("TEXTO FINAL (TRECHO):", full_text[:500])
     return findings
