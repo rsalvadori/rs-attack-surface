@@ -1,110 +1,173 @@
 import requests
 import urllib3
+import re
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-def contains_any(text: str, keywords: list[str]) -> bool:
-    return any(k in text for k in keywords)
+TIMEOUT = 5
+MAX_LINKS = 10  # controle para não pesar
+
+
+def fetch(url: str):
+    try:
+        r = requests.get(url, timeout=TIMEOUT, verify=False)
+        return r.text.lower() if r.status_code == 200 else ""
+    except:
+        return ""
+
+
+def extract_links(html: str):
+    links = re.findall(r'href=["\\\'](.*?)["\\\']', html)
+    clean = []
+
+    for l in links:
+        if l.startswith("#") or "javascript:" in l:
+            continue
+        clean.append(l)
+
+    return list(set(clean))
+
+
+def normalize_link(domain: str, link: str):
+    if link.startswith("http"):
+        return link
+    if link.startswith("/"):
+        return f"https://{domain}{link}"
+    return f"https://{domain}/{link}"
 
 
 def analyze_lgpd(domain: str) -> list[dict]:
     findings = []
 
-    try:
-        response = requests.get(
-            f"https://{domain}",
-            timeout=10,
-            verify=False
-        )
-        html = response.text.lower()
-    except Exception:
-        return findings
+    base_url = f"https://{domain}"
 
     # =========================
-    # 🔹 POLÍTICA / LGPD
+    # 🔹 HOME
     # =========================
-    policy_keywords = [
+    html = fetch(base_url)
+
+    if not html:
+        return findings
+
+    links = extract_links(html)
+
+    # =========================
+    # 🔹 FILTRAR LINKS RELEVANTES
+    # =========================
+    keywords = [
         "privacidade",
         "privacy",
         "lgpd",
-        "proteção de dados",
-        "dados pessoais",
-        "política"
-    ]
-
-    has_policy = contains_any(html, policy_keywords)
-
-    if not has_policy:
-        findings.append({
-            "title": "Política de privacidade não identificada",
-            "severity": "high",
-            "impact": "Ausência de política pode indicar não conformidade com LGPD.",
-            "recommendation": "Disponibilizar política de privacidade ou página LGPD."
-        })
-
-    # =========================
-    # 🔹 COOKIES (MELHORADO)
-    # =========================
-    cookie_keywords = [
+        "dados",
         "cookies",
-        "aceitar",
-        "rejeitar",
-        "consent",
-        "minhas opções"
+        "termos",
+        "policy"
     ]
 
-    cookie_tools = [
-        "adopt",
-        "cookiebot",
-        "onetrust",
-        "consentmanager",
-        "trustarc"
+    relevant_links = [
+        l for l in links if any(k in l.lower() for k in keywords)
     ]
 
-    has_cookie_text = contains_any(html, cookie_keywords)
-    has_cookie_tool = contains_any(html, cookie_tools)
+    # limita para não explodir tempo
+    relevant_links = relevant_links[:MAX_LINKS]
 
-    if not (has_cookie_text or has_cookie_tool):
-        findings.append({
-            "title": "Ausência de aviso de cookies",
-            "severity": "medium",
-            "impact": "Pode indicar não conformidade com requisitos de transparência.",
-            "recommendation": "Implementar banner de cookies."
-        })
+    pages_content = [html]
 
     # =========================
-    # 🔹 DPO / ENCARREGADO
+    # 🔹 CRAWL LEVE
     # =========================
-    dpo_keywords = [
+    for link in relevant_links:
+        full_url = normalize_link(domain, link)
+        content = fetch(full_url)
+
+        if content:
+            pages_content.append(content)
+
+    # junta tudo
+    full_text = " ".join(pages_content)
+
+    # =========================
+    # 🔹 DETECÇÕES
+    # =========================
+
+    # ✔ Política
+    has_policy = any(k in full_text for k in [
+        "política de privacidade",
+        "privacy policy",
+        "dados pessoais"
+    ])
+
+    # ✔ Portal do titular
+    has_portal = any(k in full_text for k in [
+        "portal do titular",
+        "direitos do titular",
+        "acesso aos dados",
+        "solicitar dados"
+    ])
+
+    # ✔ DPO / contato real
+    has_dpo = any(k in full_text for k in [
         "encarregado",
         "dpo",
-        "proteção de dados",
         "privacidade@",
+        "@",
         "contato"
-    ]
+    ])
 
-    has_dpo = contains_any(html, dpo_keywords)
+    # ✔ Cookies
+    has_cookies = any(k in full_text for k in [
+        "cookies",
+        "consent",
+        "aceitar cookies",
+        "gerenciar cookies"
+    ])
+
+    # =========================
+    # 🔹 LÓGICA CORRETA
+    # =========================
+
+    # 🚨 Só aponta ausência TOTAL se realmente não existir nada
+    if not (has_policy or has_portal):
+        findings.append({
+            "title": "Ausência de mecanismos mínimos de LGPD",
+            "severity": "high",
+            "impact": "Não foram identificados elementos mínimos de privacidade no site.",
+            "recommendation": "Implementar política de privacidade e canal do titular."
+        })
+        return findings  # aqui pode parar
+
+    # ⚠️ Parcial (caso mais realista)
+    if not has_policy:
+        findings.append({
+            "title": "Política de privacidade não identificada claramente",
+            "severity": "medium",
+            "impact": "A política pode não estar acessível ou visível ao usuário.",
+            "recommendation": "Garantir link claro para política de privacidade."
+        })
+
+    if not has_portal:
+        findings.append({
+            "title": "Portal do titular não identificado",
+            "severity": "medium",
+            "impact": "Pode dificultar o exercício dos direitos do titular.",
+            "recommendation": "Disponibilizar canal estruturado para requisições LGPD."
+        })
 
     if not has_dpo:
         findings.append({
-            "title": "Encarregado (DPO) não identificado",
-            "severity": "medium",
-            "impact": "Pode indicar ausência de canal formal ao titular.",
-            "recommendation": "Informar canal do encarregado (DPO)."
+            "title": "Canal de contato de privacidade não identificado",
+            "severity": "low",
+            "impact": "Usuários podem não ter canal claro para solicitações.",
+            "recommendation": "Divulgar e-mail ou canal do encarregado."
         })
 
-    # =========================
-    # 🔹 FORMULÁRIOS
-    # =========================
-    has_form = "<form" in html
-
-    if has_form and not has_policy:
+    if not has_cookies:
         findings.append({
-            "title": "Formulário sem aviso de privacidade",
-            "severity": "medium",
-            "impact": "Coleta de dados sem transparência adequada.",
-            "recommendation": "Adicionar aviso de privacidade em formulários."
+            "title": "Aviso de cookies não identificado",
+            "severity": "low",
+            "impact": "Pode impactar transparência no uso de dados.",
+            "recommendation": "Implementar banner de cookies."
         })
 
     return findings
