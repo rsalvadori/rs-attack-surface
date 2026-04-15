@@ -8,6 +8,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 TIMEOUT = 5
 MAX_LINKS = 10  # controle para não pesar
 
+print(">>> LGPD ANALYZER NOVO EXECUTANDO <<<")
 
 def fetch(url: str):
     try:
