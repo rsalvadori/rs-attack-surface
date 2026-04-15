@@ -263,8 +263,16 @@ def execute_scan(domain: str):
         infra_data = {}
 
     try:
-        findings = [enrich_finding(f) for f in findings]
-    except Exception:
+        enriched = []
+        for f in findings:
+            try:
+                enriched.append(enrich_finding(f))
+            except Exception as e:
+                print("ERRO ENRICH:", str(e))
+                enriched.append(f)
+
+        findings = enriched
+            except Exception:
         pass
 
     try:
