@@ -17,8 +17,7 @@ def fetch(url: str):
             headers={"User-Agent": "Mozilla/5.0"}
         )
 
-        # evita lixo / páginas vazias
-        if r.status_code == 200 and len(r.text) > 500:
+        if r.status_code == 200 and len(r.text) > 300:
             return r.text.lower()
 
     except:
@@ -70,7 +69,7 @@ def analyze_lgpd(domain: str) -> list[dict]:
     pages.append(html)
 
     # =========================
-    # 2. LINKS DO SITE (CONTROLADO)
+    # 2. LINKS DO SITE
     # =========================
     links = extract_links(html)
 
@@ -86,7 +85,7 @@ def analyze_lgpd(domain: str) -> list[dict]:
                 pages.append(content)
 
     # =========================
-    # 3. FORÇA CAMINHOS (CRÍTICO)
+    # 3. FORÇA CAMINHOS
     # =========================
     forced_paths = [
         "/politica-de-privacidade",
@@ -95,7 +94,8 @@ def analyze_lgpd(domain: str) -> list[dict]:
         "/privacidade",
         "/lgpd",
         "/termos",
-        "/termos-de-uso"
+        "/termos-de-uso",
+        "/privacy-policy"
     ]
 
     for p in forced_paths:
@@ -109,73 +109,79 @@ def analyze_lgpd(domain: str) -> list[dict]:
     full = " ".join(pages)
 
     # =========================
-    # 5. DETECÇÃO REAL
+    # 5. DETECÇÃO CORRETA
     # =========================
 
-    # Política REAL (evita falso positivo)
-    has_policy = (
-        any(x in full for x in [
-            "política de privacidade",
-            "privacy policy"
-        ])
-        and "dados pessoais" in full
-    )
-
-    has_portal = any(x in full for x in [
-        "portal do titular",
-        "direitos do titular",
-        "solicitar dados"
+    # 🔥 Política forte
+    has_policy = any(x in full for x in [
+        "política de privacidade",
+        "privacy policy"
     ])
 
+    # 🔥 Portal titular
+    has_portal = any(x in full for x in [
+        "direitos do titular",
+        "solicitar dados",
+        "request data",
+        "acesso aos dados"
+    ])
+
+    # 🔥 DPO real (ANTES ERRADO)
     has_dpo = any(x in full for x in [
         "encarregado",
         "dpo",
-        "privacidade@"
+        "privacidade@",
+        "data protection officer"
     ])
 
-    has_cookies = any(x in full for x in [
-        "cookie",
-        "cookies",
+    # 🔥 Cookies REAL (ANTES RIDICULAMENTE FRACO)
+    has_cookie_banner = any(x in full for x in [
         "aceitar cookies",
+        "rejeitar cookies",
+        "gerenciar cookies",
+        "cookie consent",
         "consent"
     ])
 
     # =========================
-    # 6. FINDINGS (SEM GAMBIARRA)
+    # 6. FINDINGS (AGORA FUNCIONA)
     # =========================
 
     if not has_policy:
         findings.append({
-            "title": "Política de privacidade não identificada",
+            "title": "Política de privacidade ausente ou não identificada",
             "severity": "medium",
-            "impact": "Não foi possível localizar política de privacidade acessível.",
-            "recommendation": "Garantir link visível para política de privacidade."
+            "impact": "Não foi possível identificar uma política de privacidade clara e acessível.",
+            "recommendation": "Disponibilizar política de privacidade com link visível."
         })
 
     if not has_portal:
         findings.append({
             "title": "Canal do titular não identificado",
             "severity": "medium",
-            "impact": "Pode dificultar exercício de direitos do titular.",
-            "recommendation": "Disponibilizar canal de requisição de dados."
+            "impact": "Não há evidência de mecanismo estruturado para atendimento ao titular.",
+            "recommendation": "Implementar canal para requisições LGPD."
         })
 
     if not has_dpo:
         findings.append({
             "title": "Contato de privacidade não identificado",
             "severity": "low",
-            "impact": "Usuário pode não ter canal direto para LGPD.",
-            "recommendation": "Divulgar e-mail ou canal do encarregado."
+            "impact": "Usuários podem não ter canal direto para solicitações LGPD.",
+            "recommendation": "Divulgar e-mail ou canal do encarregado (DPO)."
         })
 
-    if not has_cookies:
+    if not has_cookie_banner:
         findings.append({
-            "title": "Aviso de cookies não identificado",
+            "title": "Banner de cookies não identificado",
             "severity": "low",
-            "impact": "Pode impactar transparência de coleta.",
-            "recommendation": "Implementar banner de cookies."
+            "impact": "Não foi identificado mecanismo de consentimento de cookies.",
+            "recommendation": "Implementar banner de cookies com consentimento."
         })
 
+    # =========================
+    # DEBUG
+    # =========================
     print("\n===== LGPD ANALYZER RESULT =====")
     print(f"DOMAIN: {domain}")
     print(f"PAGES COLETADAS: {len(pages)}")
@@ -185,7 +191,7 @@ def analyze_lgpd(domain: str) -> list[dict]:
     print(f"HAS POLICY: {has_policy}")
     print(f"HAS PORTAL: {has_portal}")
     print(f"HAS DPO: {has_dpo}")
-    print(f"HAS COOKIES: {has_cookies}")
+    print(f"HAS COOKIES: {has_cookie_banner}")
 
     print("\nFINDINGS:")
     for f in findings:
