@@ -24,7 +24,7 @@ def run_nuclei(domain: str) -> list:
         "-bs", "1",
 
         # ⏱️ TEMPO CONTROLADO
-        "-timeout", "10",
+        "-timeout", "30",
         "-retries", "0",
 
         # 🧠 EVITA TRAVAMENTO
