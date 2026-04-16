@@ -112,34 +112,29 @@ def analyze_lgpd(domain: str) -> list[dict]:
     # 5. DETECÇÃO CORRETA
     # =========================
 
-    # 🔥 Política forte
-    has_policy = any(x in full for x in [
-        "política de privacidade",
-        "privacy policy"
-    ])
-
+    # 🔥 Política (robusta)
+    has_policy = bool(re.search(
+        r"(pol[ií]tica.*privacidade|privacy.*policy)",
+        full
+    ))
     # 🔥 Portal titular (robusto)
     has_portal = bool(re.search(
         r"(portal.*titular|direitos.*titular|solicitar.*dados|acesso.*dados|request.*data|dsar)",
         full
     ))
 
-    # 🔥 DPO real (ANTES ERRADO)
-    has_dpo = any(x in full for x in [
-        "encarregado",
-        "dpo",
-        "privacidade@",
-        "data protection officer"
-    ])
+    # 🔥 procura DPO
 
-    # 🔥 Cookies REAL (ANTES RIDICULAMENTE FRACO)
-    has_cookie_banner = any(x in full for x in [
-        "aceitar cookies",
-        "rejeitar cookies",
-        "gerenciar cookies",
-        "cookie consent",
-        "consent"
-    ])
+    has_dpo = bool(re.search(
+        r"(encarregado|dpo|data protection officer|privacidade@|lgpd@|contato.*privacidade)",
+        full
+    ))
+
+    # 🔥 procura Cookies
+    has_cookie_banner = bool(re.search(
+        r"(cookie|cookies).*(aceitar|rejeitar|gerenciar|consent|prefer)",
+        full
+    ))
 
     # =========================
     # 6. FINDINGS (AGORA FUNCIONA)
