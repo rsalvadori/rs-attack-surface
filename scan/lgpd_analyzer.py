@@ -118,13 +118,11 @@ def analyze_lgpd(domain: str) -> list[dict]:
         "privacy policy"
     ])
 
-    # 🔥 Portal titular
-    has_portal = any(x in full for x in [
-        "direitos do titular",
-        "solicitar dados",
-        "request data",
-        "acesso aos dados"
-    ])
+    # 🔥 Portal titular (robusto)
+    has_portal = bool(re.search(
+        r"(portal.*titular|direitos.*titular|solicitar.*dados|acesso.*dados|request.*data|dsar)",
+        full
+    ))
 
     # 🔥 DPO real (ANTES ERRADO)
     has_dpo = any(x in full for x in [
