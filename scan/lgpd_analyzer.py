@@ -53,6 +53,8 @@ def normalize(domain: str, link: str):
 
 
 def analyze_lgpd(domain: str) -> list[dict]:
+   
+    print(">>> EXECUTANDO LGPD ANALYZER:", domain)
 
     findings = []
     base = f"https://{domain}"
@@ -107,6 +109,15 @@ def analyze_lgpd(domain: str) -> list[dict]:
     # 4. TEXTO FINAL
     # =========================
     full = " ".join(pages)
+
+
+    print("\n===== DEBUG LGPD =====")
+    print("DOMAIN:", domain)
+    print("FULL LENGTH:", len(full))
+    print("TRECHO REAL DO SITE:")
+    print(full[:1000])  # só começo pra não poluir
+    print("======================\n")
+
 
     # =========================
     # 5. DETECÇÃO CORRETA
