@@ -199,4 +199,17 @@ def analyze_lgpd(domain: str) -> list[dict]:
 
     print("================================\n")
 
+    print("\n===== DEBUG LGPD =====")
+    print("DOMAIN:", domain)
+    print("PAGES:", len(pages))
+    print("FULL LENGTH:", len(full))
+    
+    if len(full) > 0:
+        print("\nTRECHO REAL DO SITE:")
+        print(full[:1000])
+    else:
+        print("FULL VAZIO")
+    
+    print("======================\n")
+
     return findings
