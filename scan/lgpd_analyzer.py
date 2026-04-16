@@ -17,7 +17,7 @@ def fetch(url: str):
             headers={"User-Agent": "Mozilla/5.0"}
         )
 
-        if r.status_code == 200 and len(r.text) > 300:
+        if r.status_code == 200:
             return r.text.lower()
 
     except:
