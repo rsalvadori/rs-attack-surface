@@ -1,12 +1,24 @@
-FROM mcr.microsoft.com/playwright/python:v1.43.0-jammy
+FROM python:3.11-slim
 
 # =========================
-# SISTEMA / DEPENDÊNCIAS
+# SISTEMA
 # =========================
 RUN apt-get update && apt-get install -y \
     wget \
     unzip \
     gcc \
+    curl \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
     libcairo2 \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
@@ -16,7 +28,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # =========================
-# INSTALAR NUCLEI
+# NUCLEI
 # =========================
 RUN wget https://github.com/projectdiscovery/nuclei/releases/download/v3.3.5/nuclei_3.3.5_linux_amd64.zip \
     && unzip nuclei_3.3.5_linux_amd64.zip \
@@ -25,7 +37,7 @@ RUN wget https://github.com/projectdiscovery/nuclei/releases/download/v3.3.5/nuc
     && rm -f nuclei_3.3.5_linux_amd64.zip
 
 # =========================
-# BAIXAR TEMPLATES
+# TEMPLATES
 # =========================
 RUN mkdir -p /root/.nuclei-templates \
     && wget https://github.com/projectdiscovery/nuclei-templates/archive/refs/heads/main.zip \
@@ -37,17 +49,16 @@ RUN mkdir -p /root/.nuclei-templates \
 # APP
 # =========================
 WORKDIR /app
-
 COPY . .
 
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir weasyprint
+RUN pip install playwright weasyprint
+
+# 🔥 AQUI É O PONTO CRÍTICO
+RUN playwright install chromium
 
 ENV NUCLEI_TEMPLATES_DIR=/root/.nuclei-templates
 
 EXPOSE 8000
 
-# =========================
-# START
-# =========================
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

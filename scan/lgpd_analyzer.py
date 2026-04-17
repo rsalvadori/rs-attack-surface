@@ -1,232 +1,287 @@
+import re
 import requests
 import urllib3
-import re
+from urllib.parse import urljoin
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-TIMEOUT = 5
-MAX_LINKS = 10
+TIMEOUT = 8
+MAX_LINKS = 20
+MIN_HTML_LEN = 500
+
+USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/123.0.0.0 Safari/537.36"
+)
 
 
-def fetch(url: str):
+def _clean_text(value: str) -> str:
+    if not value:
+        return ""
+    value = value.lower()
+    value = re.sub(r"<script.*?</script>", " ", value, flags=re.DOTALL | re.IGNORECASE)
+    value = re.sub(r"<style.*?</style>", " ", value, flags=re.DOTALL | re.IGNORECASE)
+    value = re.sub(r"<[^>]+>", " ", value)
+    value = re.sub(r"\s+", " ", value)
+    return value.strip()
+
+
+def _fetch(url: str) -> str:
     try:
         r = requests.get(
             url,
             timeout=TIMEOUT,
             verify=False,
-            headers={"User-Agent": "Mozilla/5.0"}
+            headers={"User-Agent": USER_AGENT},
+            allow_redirects=True,
         )
-
-        if r.status_code == 200:
+        if r.status_code == 200 and r.text:
             return r.text.lower()
-
-    except:
+    except Exception:
         pass
-
     return ""
 
 
-def extract_links(html: str):
-    links = re.findall(r'href=["\\\'](.*?)["\\\']', html)
+def _extract_links(html: str, base_url: str) -> list[str]:
+    if not html:
+        return []
 
-    clean = []
-    for l in links:
-        if not l:
+    hrefs = re.findall(r'href=["\'](.*?)["\']', html, flags=re.IGNORECASE)
+    results = []
+
+    for href in hrefs:
+        href = (href or "").strip()
+        if not href:
             continue
-        if l.startswith("#"):
+        if href.startswith("#"):
             continue
-        if "javascript:" in l:
+        if href.startswith("javascript:"):
             continue
-        if "mailto:" in l:
+        if href.startswith("mailto:"):
             continue
-        clean.append(l)
+        if href.startswith("tel:"):
+            continue
 
-    return list(set(clean))
+        full = urljoin(base_url, href)
+        results.append(full)
+
+    seen = set()
+    unique = []
+    for item in results:
+        if item not in seen:
+            seen.add(item)
+            unique.append(item)
+    return unique
 
 
-def normalize(domain: str, link: str):
-    if link.startswith("http"):
-        return link
-    if link.startswith("/"):
-        return f"https://{domain}{link}"
-    return f"https://{domain}/{link}"
+def _maybe_render_with_playwright(url: str) -> str:
+    """
+    Tenta renderizar o site com Playwright.
+    Se Playwright não estiver disponível ou falhar, retorna string vazia.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        return ""
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(user_agent=USER_AGENT)
+            page.goto(url, wait_until="networkidle", timeout=20000)
+            page_text = page.content().lower()
+            browser.close()
+            return page_text
+    except Exception:
+        return ""
 
 
-def analyze_lgpd(domain: str) -> list[dict]:
-   
-    print(">>> EXECUTANDO LGPD ANALYZER:", domain)
+def _collect_candidate_pages(domain: str) -> list[dict]:
+    base_url = f"https://{domain}"
+    pages: list[dict] = []
 
-    findings = []
-    base = f"https://{domain}"
+    # 1. Home via requests
+    home_html = _fetch(base_url)
+    if home_html:
+        pages.append({"url": base_url, "html": home_html, "source": "requests-home"})
 
-    pages = []
-
-    # =========================
-    # 1. HOME
-    # =========================
-    html = fetch(base)
-
-    if html:
-    pages.append(html)
-
-    pages.append(html)
-
-    # =========================
-    # 2. LINKS DO SITE
-    # =========================
-    links = extract_links(html)
-
-    keywords = [
-        "privacidade", "privacy", "lgpd", "dados",
-        "policy", "cookies", "termos"
+    # 2. Links relevantes encontrados na home
+    relevant_keywords = [
+        "privacidade", "privacy", "lgpd", "dados", "policy",
+        "cookies", "termos", "contato", "contact", "encarregado",
+        "dpo", "titular", "dsar"
     ]
 
-    for l in links[:MAX_LINKS]:
-        if any(k in l.lower() for k in keywords):
-            content = fetch(normalize(domain, l))
-            if content:
-                pages.append(content)
+    links = _extract_links(home_html, base_url) if home_html else []
+    relevant_links = [
+        link for link in links
+        if any(k in link.lower() for k in relevant_keywords)
+    ][:MAX_LINKS]
 
-    # =========================
-    # 3. FORÇA CAMINHOS
-    # =========================
+    for link in relevant_links:
+        html = _fetch(link)
+        if html:
+            pages.append({"url": link, "html": html, "source": "requests-link"})
+
+    # 3. Paths comuns forçados
     forced_paths = [
         "/politica-de-privacidade",
         "/politica",
         "/privacy",
+        "/privacy-policy",
         "/privacidade",
         "/lgpd",
+        "/cookies",
+        "/cookie-policy",
         "/termos",
         "/termos-de-uso",
-        "/privacy-policy"
+        "/contato",
+        "/contact",
     ]
 
-    for p in forced_paths:
-        content = fetch(base + p)
-        if content:
-            pages.append(content)
+    for path in forced_paths:
+        url = urljoin(base_url, path)
+        html = _fetch(url)
+        if html:
+            pages.append({"url": url, "html": html, "source": "requests-forced"})
 
-    # =========================
-    # 4. TEXTO FINAL
-    # =========================
-    full = " ".join(pages)
+    # 4. Se o HTML veio pobre ou inconclusivo, tenta Playwright na home
+    combined_html = " ".join(p["html"] for p in pages if p["html"])
+    if len(combined_html) < MIN_HTML_LEN or "wix.com website builder" in combined_html:
+        rendered = _maybe_render_with_playwright(base_url)
+        if rendered:
+            pages.append({"url": base_url, "html": rendered, "source": "playwright-home"})
+
+            rendered_links = _extract_links(rendered, base_url)
+            rendered_relevant = [
+                link for link in rendered_links
+                if any(k in link.lower() for k in relevant_keywords)
+            ][:MAX_LINKS]
+
+            for link in rendered_relevant:
+                rendered_link_html = _maybe_render_with_playwright(link)
+                if rendered_link_html:
+                    pages.append({"url": link, "html": rendered_link_html, "source": "playwright-link"})
+
+    # remove duplicados por URL + source
+    seen = set()
+    unique_pages = []
+    for page in pages:
+        key = (page["url"], page["source"])
+        if key not in seen:
+            seen.add(key)
+            unique_pages.append(page)
+
+    return unique_pages
 
 
-    print("\n===== DEBUG LGPD =====")
+def _detect_policy(full_html: str, full_text: str) -> bool:
+    patterns = [
+        r"pol[ií]tica.{0,40}privacidade",
+        r"privacy.{0,20}policy",
+        r"aviso.{0,20}privacidade",
+    ]
+    return any(re.search(p, full_text, flags=re.IGNORECASE) for p in patterns)
+
+
+def _detect_dpo(full_html: str, full_text: str) -> bool:
+    patterns = [
+        r"\bencarregado\b",
+        r"\bdpo\b",
+        r"data protection officer",
+        r"lgpd@",
+        r"privacidade@",
+        r"contato.{0,30}privacidade",
+        r"fale.{0,20}encarregado",
+    ]
+    return any(re.search(p, full_text, flags=re.IGNORECASE) for p in patterns)
+
+
+def _detect_cookie_banner(full_html: str, full_text: str) -> bool:
+    html_patterns = [
+        r"onetrust",
+        r"cookiebot",
+        r"trustarc",
+        r"consentmanager",
+        r"didomi",
+        r"cookie[-_ ]banner",
+        r"cookie[-_ ]consent",
+    ]
+
+    text_patterns = [
+        r"aceitar.{0,20}cookies",
+        r"rejeitar.{0,20}cookies",
+        r"gerenciar.{0,20}cookies",
+        r"prefer[eê]ncias.{0,20}cookies",
+        r"utilizamos.{0,20}cookies",
+        r"este site.{0,20}cookies",
+    ]
+
+    html_hit = any(re.search(p, full_html, flags=re.IGNORECASE) for p in html_patterns)
+    text_hit = any(re.search(p, full_text, flags=re.IGNORECASE) for p in text_patterns)
+    return html_hit or text_hit
+
+
+def analyze_lgpd(domain: str) -> list[dict]:
+    print(f">>> EXECUTANDO LGPD ANALYZER: {domain}")
+
+    pages = _collect_candidate_pages(domain)
+
+    full_html = " ".join(page["html"] for page in pages if page["html"])
+    full_text = _clean_text(full_html)
+
+    print("\n===== LGPD ANALYZER DEBUG =====")
     print("DOMAIN:", domain)
-    print("FULL LENGTH:", len(full))
-    print("TRECHO REAL DO SITE:")
-    print(full[:1000])  # só começo pra não poluir
-    print("======================\n")
+    print("PAGES COLETADAS:", len(pages))
+    print("FULL HTML LENGTH:", len(full_html))
+    print("FULL TEXT LENGTH:", len(full_text))
+    for idx, page in enumerate(pages[:10], start=1):
+        print(f"[{idx}] {page['source']} -> {page['url']}")
+    print("===============================\n")
 
-    if not full:
-        print(">>> FULL VAZIO - NAO FOI POSSIVEL COLETAR CONTEUDO")
+    findings = []
 
+    if not full_html.strip():
         findings.append({
             "title": "Site não acessível ou bloqueando análise",
             "severity": "high",
-            "impact": "Não foi possível coletar conteúdo do site para análise LGPD.",
-            "recommendation": "Verificar bloqueios (WAF/CDN), redirecionamentos ou carregamento dinâmico."
+            "impact": "Não foi possível coletar conteúdo suficiente para validação automática de LGPD.",
+            "recommendation": "Verificar bloqueios, proteção anti-bot ou adotar crawler com renderização completa."
         })
-
         return findings
 
+    has_policy = _detect_policy(full_html, full_text)
+    has_dpo = _detect_dpo(full_html, full_text)
+    has_cookie_banner = _detect_cookie_banner(full_html, full_text)
 
-    # =========================
-    # 5. DETECÇÃO CORRETA
-    # =========================
-
-    # 🔥 Política (robusta)
-    has_policy = bool(re.search(
-        r"(pol[ií]tica.*privacidade|privacy.*policy)",
-        full
-    ))
-    # 🔥 Portal titular (robusto)
-    has_portal = bool(re.search(
-        r"(portal.*titular|direitos.*titular|solicitar.*dados|acesso.*dados|request.*data|dsar)",
-        full
-    ))
-
-    # 🔥 procura DPO
-
-    has_dpo = bool(re.search(
-        r"(encarregado|dpo|data protection officer|privacidade@|lgpd@|contato.*privacidade)",
-        full
-    ))
-
-    # 🔥 procura Cookies
-    has_cookie_banner = bool(re.search(
-        r"(cookie|cookies).*(aceitar|rejeitar|gerenciar|consent|prefer)",
-        full
-    ))
-
-    # =========================
-    # 6. FINDINGS (AGORA FUNCIONA)
-    # =========================
+    print("HAS POLICY:", has_policy)
+    print("HAS DPO:", has_dpo)
+    print("HAS COOKIES:", has_cookie_banner)
 
     if not has_policy:
         findings.append({
             "title": "Política de privacidade ausente ou não identificada",
             "severity": "medium",
-            "impact": "Não foi possível identificar uma política de privacidade clara e acessível.",
-            "recommendation": "Disponibilizar política de privacidade com link visível."
-        })
-
-    if not has_portal:
-        findings.append({
-            "title": "Canal do titular não identificado",
-            "severity": "medium",
-            "impact": "Não há evidência de mecanismo estruturado para atendimento ao titular.",
-            "recommendation": "Implementar canal para requisições LGPD."
+            "impact": "Não foi possível identificar política de privacidade clara e acessível ao usuário.",
+            "recommendation": "Disponibilizar política de privacidade com link visível no site."
         })
 
     if not has_dpo:
         findings.append({
             "title": "Contato de privacidade não identificado",
             "severity": "low",
-            "impact": "Usuários podem não ter canal direto para solicitações LGPD.",
-            "recommendation": "Divulgar e-mail ou canal do encarregado (DPO)."
+            "impact": "Não foi possível identificar canal claro do encarregado/DPO.",
+            "recommendation": "Divulgar e-mail ou canal de contato para assuntos de privacidade e LGPD."
         })
 
     if not has_cookie_banner:
         findings.append({
             "title": "Banner de cookies não identificado",
             "severity": "low",
-            "impact": "Não foi identificado mecanismo de consentimento de cookies.",
-            "recommendation": "Implementar banner de cookies com consentimento."
+            "impact": "Não foi identificado mecanismo claro de consentimento/gestão de cookies.",
+            "recommendation": "Implementar banner de cookies com aceitação, rejeição ou gestão de preferências."
         })
 
-    # =========================
-    # DEBUG
-    # =========================
-    print("\n===== LGPD ANALYZER RESULT =====")
-    print(f"DOMAIN: {domain}")
-    print(f"PAGES COLETADAS: {len(pages)}")
-    print(f"TAMANHO FULL: {len(full)}")
-
-    print("\nDETECCAO:")
-    print(f"HAS POLICY: {has_policy}")
-    print(f"HAS PORTAL: {has_portal}")
-    print(f"HAS DPO: {has_dpo}")
-    print(f"HAS COOKIES: {has_cookie_banner}")
-
-    print("\nFINDINGS:")
-    for f in findings:
-        print(f"- {f['title']} ({f['severity']})")
-
-    print("================================\n")
-
-    print("\n===== DEBUG LGPD =====")
-    print("DOMAIN:", domain)
-    print("PAGES:", len(pages))
-    print("FULL LENGTH:", len(full))
-    
-    if len(full) > 0:
-        print("\nTRECHO REAL DO SITE:")
-        print(full[:1000])
-    else:
-        print("FULL VAZIO")
-    
-    print("======================\n")
-
+    print("FINDINGS LGPD:", findings)
     return findings
