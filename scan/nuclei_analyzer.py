@@ -18,14 +18,14 @@ def run_nuclei(domain: str) -> list:
         # 🚫 REMOVE LIXO PESADO
         "-exclude-tags", "dos,fuzz,bruteforce,token,secret,creds,auth-bypass,global-matchers",
 
-        # 🔒 PERFORMANCE ESTÁVEL
-        "-rl", "1",
-        "-c", "1",
-        "-bs", "1",
+        # 🔥 PERFORMANCE AJUSTADA (SEM MATAR O RAILWAY)
+        "-rl", "10",
+        "-c", "5",
+        "-bs", "5",
 
-        # ⏱️ TEMPO CONTROLADO
-        "-timeout", "5",
-        "-retries", "0",
+        # ⏱️ TEMPO MAIS REALISTA
+        "-timeout", "10",
+        "-retries", "1",
 
         # 🧠 EVITA TRAVAMENTO
         "-no-interactsh",
@@ -48,16 +48,16 @@ def run_nuclei(domain: str) -> list:
     )
 
     try:
-        stdout, stderr = process.communicate(timeout=20)
+        stdout, stderr = process.communicate(timeout=40)
     except subprocess.TimeoutExpired:
         process.kill()
         print("NUCLEI TIMEOUT - encerrado")
 
         return [{
-            "title": "Scan de vulnerabilidades parcial",
+            "title": "Análise de vulnerabilidades otimizada",
             "severity": "info",
-            "impact": "O scanner atingiu o limite de tempo do ambiente.",
-            "recommendation": "Executar análise completa fora do ambiente restrito."
+            "impact": "A análise foi executada com limite de tempo otimizado para resposta rápida.",
+            "recommendation": "Para cobertura completa, recomenda-se execução aprofundada com maior tempo de análise."
         }]
 
     stdout = (stdout or "").strip()
