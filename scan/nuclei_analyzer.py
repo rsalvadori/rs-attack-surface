@@ -13,7 +13,7 @@ def run_nuclei(domain: str) -> list:
         "-u", target,
 
         "-templates",
-        "/root/.nuclei-templates/http/misconfiguration/http-headers.yaml,/root/.nuclei-templates/http/misconfiguration/cors.yaml,/root/.nuclei-templates/http/misconfiguration/security-headers.yaml",
+        "/root/.nuclei-templates/http/misconfiguration/",
 
         "-exclude-tags", "dos,fuzz,bruteforce,token,secret,creds,auth-bypass,global-matchers",
 
