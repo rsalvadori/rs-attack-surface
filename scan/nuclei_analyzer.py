@@ -8,29 +8,29 @@ def run_nuclei(domain: str) -> list:
 
     NUCLEI_PATH = shutil.which("nuclei") or "nuclei"
 
-command = [
-    NUCLEI_PATH,
-    "-u", target,
+    command = [
+        NUCLEI_PATH,
+        "-u", target,
 
-    "-templates",
-    "/root/.nuclei-templates/http/misconfiguration/http-headers.yaml,/root/.nuclei-templates/http/misconfiguration/cors.yaml,/root/.nuclei-templates/http/misconfiguration/security-headers.yaml",
+        "-templates",
+        "/root/.nuclei-templates/http/misconfiguration/http-headers.yaml,/root/.nuclei-templates/http/misconfiguration/cors.yaml,/root/.nuclei-templates/http/misconfiguration/security-headers.yaml",
 
-    "-exclude-tags", "dos,fuzz,bruteforce,token,secret,creds,auth-bypass,global-matchers",
+        "-exclude-tags", "dos,fuzz,bruteforce,token,secret,creds,auth-bypass,global-matchers",
 
-    "-rl", "10",
-    "-c", "5",
-    "-bs", "5",
+        "-rl", "10",
+        "-c", "5",
+        "-bs", "5",
 
-    "-timeout", "15",
-    "-retries", "1",
+        "-timeout", "15",
+        "-retries", "1",
 
-    "-no-interactsh",
-    "-no-color",
+        "-no-interactsh",
+        "-no-color",
 
-    "-silent",
-    "-nc",
-    "-j"
-]
+        "-silent",
+        "-nc",
+        "-j"
+    ]
     print("TARGET NUCLEI:", target)
     print("COMANDO:", " ".join(command))
 
