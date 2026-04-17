@@ -14,12 +14,10 @@ def run_nuclei(domain: str) -> list:
 
         # 🔒 ESCOPOS CONTROLADOS (FOCO REAL)
         "-templates",
-        "/root/nuclei-templates/http/misconfiguration/http-headers.yaml,/root/nuclei-templates/http/misconfiguration/cors.yaml,/root/nuclei-templates/http/misconfiguration/security-headers.yaml",
+                "/root/nuclei-templates/http/misconfiguration/http-headers.yaml,"
+        "/root/nuclei-templates/http/misconfiguration/cors.yaml,"
+        "/root/nuclei-templates/http/misconfiguration/security-headers.yaml",
 
-        "-templates",
-        "/root/nuclei-templates/http/exposures/files/",
-
-        # 🚫 REMOVE LIXO PESADO
         "-exclude-tags", "dos,fuzz,bruteforce,token,secret,creds,auth-bypass,global-matchers",
 
         # 🔥 PERFORMANCE AJUSTADA (SEM MATAR O RAILWAY)
