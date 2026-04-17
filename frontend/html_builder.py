@@ -267,11 +267,13 @@ function getGrade(score) {{
     return "E";
 }}
 
-function getColor(score) {{
-    if (score >= 80) return "#16a34a";
-    if (score >= 60) return "#f59e0b";
-    return "#dc2626";
-}}
+function getColorByGrade(grade) {
+    if (grade === "A") return "#16a34a"; // verde
+    if (grade === "B") return "#22c55e"; // verde claro
+    if (grade === "C") return "#f59e0b"; // amarelo
+    if (grade === "D") return "#f97316"; // laranja
+    return "#dc2626"; // E vermelho
+}
 
 function isLgpdFinding(f) {{
     if ((f.type || "").toLowerCase() === "privacy") return true;
@@ -313,7 +315,7 @@ document.getElementById("scoreValue").innerText = score;
 document.getElementById("scoreGrade").innerText = currentGrade;
 document.getElementById("currentGrade").innerText = currentGrade;
 document.getElementById("riskLevel").innerText = String(data.risk || "").toUpperCase();
-document.getElementById("scoreCircle").style.background = getColor(score);
+document.getElementById("scoreCircle").style.background = getColorByGrade(currentGrade);
 
 // KPIs
 document.getElementById("kpiVuln").innerText = findings.length;
