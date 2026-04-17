@@ -65,8 +65,9 @@ def analyze_lgpd(domain: str) -> list[dict]:
     # 1. HOME
     # =========================
     html = fetch(base)
-    if not html:
-        return findings
+
+    if html:
+    pages.append(html)
 
     pages.append(html)
 
@@ -117,6 +118,18 @@ def analyze_lgpd(domain: str) -> list[dict]:
     print("TRECHO REAL DO SITE:")
     print(full[:1000])  # só começo pra não poluir
     print("======================\n")
+
+    if not full:
+        print(">>> FULL VAZIO - NAO FOI POSSIVEL COLETAR CONTEUDO")
+
+        findings.append({
+            "title": "Site não acessível ou bloqueando análise",
+            "severity": "high",
+            "impact": "Não foi possível coletar conteúdo do site para análise LGPD.",
+            "recommendation": "Verificar bloqueios (WAF/CDN), redirecionamentos ou carregamento dinâmico."
+        })
+
+        return findings
 
 
     # =========================
