@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM mcr.microsoft.com/playwright/python:v1.43.0-jammy
 
 # =========================
 # SISTEMA / DEPENDÊNCIAS
@@ -21,10 +21,11 @@ RUN apt-get update && apt-get install -y \
 RUN wget https://github.com/projectdiscovery/nuclei/releases/download/v3.3.5/nuclei_3.3.5_linux_amd64.zip \
     && unzip nuclei_3.3.5_linux_amd64.zip \
     && chmod +x nuclei \
-    && mv nuclei /usr/local/bin/
+    && mv nuclei /usr/local/bin/ \
+    && rm -f nuclei_3.3.5_linux_amd64.zip
 
 # =========================
-# BAIXAR TEMPLATES (FORÇADO)
+# BAIXAR TEMPLATES
 # =========================
 RUN mkdir -p /root/.nuclei-templates \
     && wget https://github.com/projectdiscovery/nuclei-templates/archive/refs/heads/main.zip \
@@ -40,9 +41,11 @@ WORKDIR /app
 COPY . .
 
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install weasyprint
+RUN pip install --no-cache-dir weasyprint
 
-ENV NUCLEI_TEMPLATES_DIR=/root/nuclei-templates
+ENV NUCLEI_TEMPLATES_DIR=/root/.nuclei-templates
+
+EXPOSE 8000
 
 # =========================
 # START
