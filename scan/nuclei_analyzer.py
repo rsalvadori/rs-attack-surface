@@ -12,8 +12,12 @@ def run_nuclei(domain: str) -> list:
         NUCLEI_PATH,
         "-u", target,
 
-        # 🔒 ESCOPOS CONTROLADOS (SEM exposure!)
-        "-templates", "/root/nuclei-templates/http/misconfiguration/,/root/nuclei-templates/ssl/",
+        # 🔒 ESCOPOS CONTROLADOS (FOCO REAL)
+        "-templates",
+        "/root/nuclei-templates/http/misconfiguration/http-headers.yaml,/root/nuclei-templates/http/misconfiguration/cors.yaml,/root/nuclei-templates/http/misconfiguration/security-headers.yaml",
+
+        "-templates",
+        "/root/nuclei-templates/http/exposures/files/",
 
         # 🚫 REMOVE LIXO PESADO
         "-exclude-tags", "dos,fuzz,bruteforce,token,secret,creds,auth-bypass,global-matchers",
@@ -24,7 +28,7 @@ def run_nuclei(domain: str) -> list:
         "-bs", "5",
 
         # ⏱️ TEMPO MAIS REALISTA
-        "-timeout", "10",
+        "-timeout", "15",
         "-retries", "1",
 
         # 🧠 EVITA TRAVAMENTO
@@ -48,7 +52,7 @@ def run_nuclei(domain: str) -> list:
     )
 
     try:
-        stdout, stderr = process.communicate(timeout=40)
+        stdout, stderr = process.communicate(timeout=60)
     except subprocess.TimeoutExpired:
         process.kill()
         print("NUCLEI TIMEOUT - encerrado")
