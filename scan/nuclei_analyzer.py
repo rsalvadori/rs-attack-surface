@@ -44,29 +44,18 @@ def run_nuclei(domain: str) -> list:
     print("TARGET NUCLEI:", target)
     print("COMANDO:", " ".join(command))
 
-    process = subprocess.Popen(
+    result = subprocess.run(
         command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=True
     )
 
-    try:
-        stdout, stderr = process.communicate(timeout=60)
-    except subprocess.TimeoutExpired:
-        process.kill()
-        print("NUCLEI TIMEOUT - encerrado")
-
-        return [{
-            "title": "Análise de vulnerabilidades otimizada",
-            "severity": "info",
-            "impact": "A análise foi executada com limite de tempo otimizado para resposta rápida.",
-            "recommendation": "Para cobertura completa, recomenda-se execução aprofundada com maior tempo de análise."
-        }]
-
-    stdout = (stdout or "").strip()
+    stdout = (result.stdout or "").strip()
+    stderr = (result.stderr or "").strip()
 
     print("STDOUT PREVIEW:", stdout[:500])
+    if stderr:
+        print("STDERR PREVIEW:", stderr[:500])
 
     # 🔥 fallback REAL
     if not stdout:
