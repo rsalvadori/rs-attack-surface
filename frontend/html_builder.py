@@ -267,13 +267,13 @@ function getGrade(score) {{
     return "E";
 }}
 
-function getColorByGrade(grade) {
+function getColorByGrade(grade) {{
     if (grade === "A") return "#16a34a"; // verde
     if (grade === "B") return "#22c55e"; // verde claro
     if (grade === "C") return "#f59e0b"; // amarelo
     if (grade === "D") return "#f97316"; // laranja
     return "#dc2626"; // E vermelho
-}
+}}
 
 function isLgpdFinding(f) {{
     if ((f.type || "").toLowerCase() === "privacy") return true;
