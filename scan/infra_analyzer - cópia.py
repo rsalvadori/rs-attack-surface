@@ -8,24 +8,11 @@ except:
     DNS_AVAILABLE = False
 
 
-def get_ips(domain):
-    ips = []
-
-    if DNS_AVAILABLE:
-        try:
-            answers = dns.resolver.resolve(domain, "A")
-            ips = [str(r) for r in answers]
-        except:
-            pass
-
-    if not ips:
-        try:
-            ip = socket.gethostbyname(domain)
-            ips.append(ip)
-        except:
-            pass
-
-    return list(set(ips))
+def get_ip(domain):
+    try:
+        return socket.gethostbyname(domain)
+    except:
+        return None
 
 
 def get_dns_records(domain):
@@ -39,24 +26,27 @@ def get_dns_records(domain):
         return records
 
     try:
-        records["A"] = [str(r) for r in dns.resolver.resolve(domain, "A")]
+        answers = dns.resolver.resolve(domain, "A")
+        records["A"] = [str(r) for r in answers]
     except:
         pass
 
     try:
-        records["MX"] = [str(r.exchange) for r in dns.resolver.resolve(domain, "MX")]
+        answers = dns.resolver.resolve(domain, "MX")
+        records["MX"] = [str(r.exchange) for r in answers]
     except:
         pass
 
     try:
-        records["NS"] = [str(r) for r in dns.resolver.resolve(domain, "NS")]
+        answers = dns.resolver.resolve(domain, "NS")
+        records["NS"] = [str(r) for r in answers]
     except:
         pass
 
     return records
 
 
-def detect_services(ip):
+def detect_services(domain):
     services = []
 
     ports = {
@@ -67,9 +57,14 @@ def detect_services(ip):
         25: "SMTP"
     }
 
+    ip = get_ip(domain)
+
+    if not ip:
+        return services
+
     for port, name in ports.items():
         try:
-            sock = socket.create_connection((ip, port), timeout=1.5)
+            sock = socket.create_connection((ip, port), timeout=2)
             sock.close()
             services.append(name)
         except:
@@ -80,7 +75,8 @@ def detect_services(ip):
 
 def get_geo(ip):
     try:
-        response = requests.get(f"http://ip-api.com/json/{ip}", timeout=3)
+        url = f"http://ip-api.com/json/{ip}"
+        response = requests.get(url, timeout=5)
 
         if response.status_code == 200:
             data = response.json()
@@ -92,6 +88,7 @@ def get_geo(ip):
                 "isp": data.get("isp"),
                 "org": data.get("org")
             }
+
     except:
         pass
 
@@ -107,21 +104,17 @@ def analyze_infrastructure(domain):
         "geo": {}
     }
 
-    ips = get_ips(domain)
-    result["ips"] = ips
+    ip = get_ip(domain)
 
-    result["dns"] = get_dns_records(domain)
-
-    all_services = set()
-
-    for ip in ips:
-        services = detect_services(ip)
-        all_services.update(services)
+    if ip:
+        result["ips"].append(ip)
 
         geo = get_geo(ip)
         if geo:
             result["geo"][ip] = geo
 
-    result["services"] = list(all_services)
+    result["dns"] = get_dns_records(domain)
+
+    result["services"] = detect_services(domain)
 
     return result

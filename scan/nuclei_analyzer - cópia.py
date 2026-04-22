@@ -12,7 +12,7 @@ def run_nuclei(domain: str) -> list[dict]:
         "-u", target,
 
         # escopo enxuto e funcional
-        "-tags", "misconfig,exposure,default-login",
+        "-templates", "/root/.nuclei-templates/http/misconfiguration/",
 
         # remove categorias pesadas / irrelevantes
         "-exclude-tags", "dos,fuzz,bruteforce,token,secret,creds,auth-bypass,global-matchers",
@@ -101,7 +101,7 @@ def run_nuclei(domain: str) -> list[dict]:
             "title": name,
             "severity": severity,
             "impact": f"Evidência identificada em {matched}",
-            "recommendation": info.get("description") or "Validar e corrigir conforme boas práticas."
+            "recommendation": "Validar tecnicamente e aplicar correção."
         })
 
     if not findings:
