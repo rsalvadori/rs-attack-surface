@@ -1,3 +1,4 @@
+from scan.context_analyzer import generate_executive_summary, generate_conclusion
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -24,9 +25,6 @@ app = FastAPI(
     description="Scanner de Attack Surface com análise de segurança, privacidade e infraestrutura."
 )
 
-# =========================
-# FRONTEND
-# =========================
 app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
 app.mount("/reports", StaticFiles(directory="reports"), name="reports")
 
@@ -35,16 +33,10 @@ def serve_dashboard():
     return FileResponse("frontend/attack-surface.html")
 
 
-# =========================
-# MODELO
-# =========================
 class ScanRequest(BaseModel):
     domain: str = Field(..., example="example.com")
 
 
-# =========================
-# VALIDAÇÃO
-# =========================
 DOMAIN_REGEX = re.compile(
     r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
 )
@@ -76,9 +68,6 @@ def validate_domain(domain: str) -> bool:
     return bool(DOMAIN_REGEX.match(domain))
 
 
-# =========================
-# SCORE
-# =========================
 def calculate_scores(findings: list[dict]):
     security_score = 100
     privacy_score = 100
@@ -126,7 +115,6 @@ def calculate_scores(findings: list[dict]):
 
 def get_top_findings(findings, limit=3):
     severity_order = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}
-
     filtered = [f for f in findings if f.get("severity") != "info"]
 
     return sorted(
@@ -136,9 +124,6 @@ def get_top_findings(findings, limit=3):
     )[:limit]
 
 
-# =========================
-# MATURIDADE / CLASSIFICACAO
-# =========================
 def count_severities(findings: list[dict]) -> dict:
     counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
 
@@ -172,20 +157,17 @@ def count_lgpd_findings(findings: list[dict]) -> int:
 
 def evaluate_grade(scan_result: dict) -> str:
     score = int(scan_result.get("score", 0))
-    findings = scan_result.get("findings", [])
 
-    counts = count_severities(findings)
-
-    if score >= 90 and counts["critical"] == 0 and counts["high"] == 0:
+    if score >= 85:
         return "A"
-    if score >= 80 and counts["critical"] == 0 and counts["high"] <= 1:
+    elif score >= 70:
         return "B"
-    if score >= 70 and counts["critical"] == 0:
+    elif score >= 55:
         return "C"
-    if score >= 60:
+    elif score >= 40:
         return "D"
-
-    return "E"
+    else:
+        return "E"
 
 
 def get_allowed_upgrade_targets(current_grade: str) -> list[str]:
@@ -199,14 +181,10 @@ def get_allowed_upgrade_targets(current_grade: str) -> list[str]:
     return mapping.get(current_grade, [])
 
 
-# =========================
-# CORE
-# =========================
 def execute_scan(domain: str):
 
     findings = []
 
-    # HTTPX
     try:
         httpx_data = run_httpx(domain)
     except Exception:
@@ -226,30 +204,50 @@ def execute_scan(domain: str):
     if "x-content-type-options" not in headers_raw:
         findings.append({"title": "Missing X-Content-Type-Options", "severity": "low"})
 
-    # TLS
+    # 🔥 ENRIQUECIMENTO HTTPX (dentro do seu fluxo)
+    if httpx_data:
+        status = httpx_data.get("status_code")
+        techs = httpx_data.get("tech", [])
+        webserver = httpx_data.get("webserver")
+
+        if status and status >= 400:
+            findings.append({
+                "title": f"Aplicação retornando status {status}",
+                "severity": "medium"
+            })
+
+        if techs:
+            findings.append({
+                "title": f"Tecnologias identificadas: {', '.join(techs[:3])}",
+                "severity": "info"
+            })
+
+        if webserver:
+            findings.append({
+                "title": f"Servidor identificado: {webserver}",
+                "severity": "info"
+            })
+
     try:
         findings.extend(analyze_tls(domain) or [])
     except Exception as e:
         print("ERRO TLS:", str(e))
 
-    # LGPD
-    print(">>> EXECUTANDO LGPD ANALYZER <<<")
-    lgpd_results = []
     try:
-        lgpd_results = analyze_lgpd(domain)
+        findings.extend(analyze_lgpd(domain) or [])
     except Exception as e:
         print("ERRO LGPD:", str(e))
 
-    print(">>> LGPD RESULTS:", lgpd_results)
-    findings.extend(lgpd_results)
-
-    # INFRA
     try:
         infra_data = analyze_infrastructure(domain)
     except Exception:
         infra_data = {}
 
-    # ENRICH
+    try:
+        findings.extend(analyze_nuclei(domain) or [])
+    except Exception as e:
+        print("ERRO NUCLEI:", str(e))
+
     enriched = []
     for f in findings:
         try:
@@ -258,23 +256,24 @@ def execute_scan(domain: str):
             enriched.append(f)
     findings = enriched
 
-    # NUCLEI
-    try:
-        findings.extend(analyze_nuclei(domain) or [])
-    except Exception as e:
-        print("ERRO NUCLEI:", str(e))
-
-    # SCORE
     score, risk, sec, priv = calculate_scores(findings)
+
+    summary = generate_executive_summary({
+        "infra": infra_data,
+        "findings": findings,
+        "score": score
+    })
+
+    conclusion = generate_conclusion({
+        "infra": infra_data,
+        "findings": findings,
+        "score": score
+    })
 
     current_grade = evaluate_grade({
         "score": score,
         "findings": findings
     })
-
-    severity_counts = count_severities(findings)
-    lgpd_count = count_lgpd_findings(findings)
-    allowed_upgrade_targets = get_allowed_upgrade_targets(current_grade)
 
     return {
         "target": domain,
@@ -287,15 +286,14 @@ def execute_scan(domain: str):
         "infra": infra_data,
         "raw_httpx": httpx_data,
         "current_grade": current_grade,
-        "allowed_upgrade_targets": allowed_upgrade_targets,
-        "severity_counts": severity_counts,
-        "lgpd_findings_count": lgpd_count
+        "allowed_upgrade_targets": get_allowed_upgrade_targets(current_grade),
+        "severity_counts": count_severities(findings),
+        "lgpd_findings_count": count_lgpd_findings(findings),
+        "executive_summary": summary,
+        "conclusion": conclusion
     }
 
 
-# =========================
-# ENDPOINT
-# =========================
 @app.post("/scan-report")
 async def scan_report(request: Request):
 
@@ -340,5 +338,7 @@ async def scan_report(request: Request):
         "html_url": f"/reports/{safe_domain}/{html_name}",
         "pdf_url": f"/reports/{safe_domain}/{pdf_name}",
         "score": result.get("score"),
-        "risk": result.get("risk")
+        "risk": result.get("risk"),
+        "executive_summary": result.get("executive_summary"),
+        "conclusion": result.get("conclusion")
     }

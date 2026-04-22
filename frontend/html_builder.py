@@ -169,10 +169,6 @@ select {{
             ⬇ Baixar relatório em PDF
         </a>
     </div>
-
-
-
-
 </div>
 
 <div class="kpis">
@@ -200,6 +196,11 @@ select {{
 <div class="card">
     <h3>Resumo Executivo</h3>
     <div id="executiveSummary"></div>
+</div>
+
+<div class="card">
+    <h3>Conclusão</h3>
+    <div id="conclusion"></div>
 </div>
 
 <div class="grid">
@@ -262,14 +263,20 @@ select {{
 
 <script>
 const data = {json_data};
+
 window.addEventListener("DOMContentLoaded", function () {{
+
     if (data.pdf_url) {{
-        const btn = document.getElementById("downloadPdfBtn");
-        if (btn) {{
-            btn.href = data.pdf_url;
-        }}
+        document.getElementById("downloadPdfBtn").href = data.pdf_url;
     }}
+
+    document.getElementById("executiveSummary").innerText =
+        data.executive_summary || "Resumo não disponível.";
+
+    document.getElementById("conclusion").innerText =
+        data.conclusion || "Conclusão não disponível.";
 }});
+
 const findings = Array.isArray(data.findings) ? data.findings : [];
 
 function normalizeSeverity(s) {{
@@ -285,57 +292,24 @@ function escapeHtml(value) {{
         .replaceAll("'", "&#039;");
 }}
 
-function getGrade(score) {{
-    if (score >= 85) return "A";
-    if (score >= 70) return "B";
-    if (score >= 55) return "C";
-    if (score >= 40) return "D";
+function getGrade(score) {
+    if (score >= 90) return "A";
+    if (score >= 80) return "B";
+    if (score >= 70) return "C";
+    if (score >= 60) return "D";
     return "E";
-}}
+}
 
 function getColorByGrade(grade) {{
-    if (grade === "A") return "#16a34a"; // verde
-    if (grade === "B") return "#22c55e"; // verde claro
-    if (grade === "C") return "#f59e0b"; // amarelo
-    if (grade === "D") return "#f97316"; // laranja
-    return "#dc2626"; // E vermelho
-}}
-
-function isLgpdFinding(f) {{
-    if ((f.type || "").toLowerCase() === "privacy") return true;
-
-    const text = `${{f.title || ""}} ${{f.impact || ""}} ${{f.recommendation || ""}}`.toLowerCase();
-
-    return [
-        "lgpd",
-        "privacidade",
-        "privacy",
-        "cookie",
-        "cookies",
-        "gdpr",
-        "consent",
-        "encarregado",
-        "dpo",
-        "titular",
-        "política de privacidade",
-        "aviso de cookies"
-    ].some(k => text.includes(k));
-}}
-
-function uniqByTitle(items) {{
-    const seen = new Set();
-    return items.filter(item => {{
-        const key = `${{item.title || ""}}|${{item.recommendation || ""}}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    }});
+    if (grade === "A") return "#16a34a";
+    if (grade === "B") return "#22c55e";
+    if (grade === "C") return "#f59e0b";
+    if (grade === "D") return "#f97316";
+    return "#dc2626";
 }}
 
 const score = Number(data.score || 0);
-const currentGrade = getGrade(score);
-const lgpdFindings = uniqByTitle(findings.filter(isLgpdFinding));
-const securityFindings = uniqByTitle(findings.filter(f => !isLgpdFinding(f)));
+const currentGrade = data.current_grade || getGrade(score);
 
 document.getElementById("scoreValue").innerText = score;
 document.getElementById("scoreGrade").innerText = currentGrade;
@@ -345,207 +319,11 @@ document.getElementById("scoreCircle").style.background = getColorByGrade(curren
 
 // KPIs
 document.getElementById("kpiVuln").innerText = findings.length;
-document.getElementById("kpiLgpd").innerText = lgpdFindings.length;
-document.getElementById("kpiInfra").innerText = (data.infra && Array.isArray(data.infra.ips)) ? data.infra.ips.length : 0;
+document.getElementById("kpiLgpd").innerText = data.lgpd_findings_count || 0;
+document.getElementById("kpiInfra").innerText = (data.infra?.ips || []).length;
 document.getElementById("kpiScore").innerText = score;
 
-// Resumo
-let summary = "";
-
-if (score < 60) {{
-    summary += "Ambiente com alto risco e exposição relevante. ";
-}} else if (score < 80) {{
-    summary += "Ambiente com maturidade intermediária, com gaps de segurança. ";
-}} else {{
-    summary += "Ambiente com boa postura de segurança. ";
-}}
-
-if (findings.some(f => ["critical", "high"].includes(normalizeSeverity(f.severity)))) {{
-    summary += "Existem vulnerabilidades críticas que exigem ação imediata. ";
-}}
-
-if (lgpdFindings.length > 0) {{
-    summary += "Existem achados de privacidade/LGPD com potencial risco regulatório. ";
-}}
-
-if (!summary.trim()) {{
-    summary = "Nenhum achado relevante foi identificado no escopo analisado.";
-}}
-
-document.getElementById("executiveSummary").innerText = summary.trim();
-
-// Top riscos
-const topList = document.getElementById("topFindings");
-const topFindings = Array.isArray(data.top_findings) && data.top_findings.length
-    ? data.top_findings
-    : findings
-        .filter(f => normalizeSeverity(f.severity) !== "info")
-        .slice(0, 3);
-
-if (!topFindings.length) {{
-    topList.innerHTML = "<li>Nenhum risco relevante identificado.</li>";
-}} else {{
-    topFindings.forEach(f => {{
-        topList.innerHTML += `<li>${{escapeHtml(f.title)}}</li>`;
-    }});
-}}
-
-// Infraestrutura
-const infraDiv = document.getElementById("infraContainer");
-const ips = (data.infra && Array.isArray(data.infra.ips)) ? data.infra.ips : [];
-const geoMap = (data.infra && data.infra.geo) ? data.infra.geo : {{}};
-const services = (data.infra && Array.isArray(data.infra.services)) ? data.infra.services : [];
-
-if (!ips.length) {{
-    infraDiv.innerHTML = `<div class="muted">Nenhum IP exposto identificado.</div>`;
-}} else {{
-    ips.forEach(ip => {{
-        const geo = geoMap[ip] || {{}};
-        infraDiv.innerHTML += `
-            <div class="infra-block">
-                <strong>${{escapeHtml(ip)}}</strong><br>
-                <span class="small">🌎 ${{escapeHtml(geo.country || "N/A")}} - ${{escapeHtml(geo.city || "")}}</span><br>
-                <span class="small">${{escapeHtml(geo.isp || geo.org || "")}}</span>
-            </div>
-        `;
-    }});
-}}
-
-if (services.length) {{
-    infraDiv.innerHTML += `
-        <div class="infra-block">
-            <strong>Serviços expostos</strong><br>
-            <span class="small">${{escapeHtml(services.join(", "))}}</span>
-        </div>
-    `;
-}}
-
-// Vulnerabilidades
-const vulnDiv = document.getElementById("vulnContainer");
-
-if (!findings.length) {{
-    vulnDiv.innerHTML = `<div class="muted">Nenhuma vulnerabilidade identificada.</div>`;
-}} else {{
-    findings.forEach(f => {{
-        let border = "#334155";
-        const sev = normalizeSeverity(f.severity);
-
-        if (sev === "critical" || sev === "high") border = "#dc2626";
-        else if (sev === "medium") border = "#f59e0b";
-
-        vulnDiv.innerHTML += `
-            <div style="border-left:4px solid ${{border}}; padding:10px; margin-bottom:10px;">
-                <strong>${{escapeHtml(f.title)}}</strong><br>
-                <span class="small">Severidade: ${{escapeHtml(f.severity || "")}}</span><br>
-                ${{escapeHtml(f.impact || "")}}
-            </div>
-        `;
-    }});
-}}
-
-// Plano de ação
-const actionDiv = document.getElementById("actionPlan");
-const actionable = uniqByTitle(findings.filter(f => String(f.recommendation || "").trim() !== ""));
-
-if (!actionable.length) {{
-    actionDiv.innerHTML = `<div class="muted">Nenhuma ação recomendada no momento.</div>`;
-}} else {{
-    actionable.forEach(f => {{
-        actionDiv.innerHTML += `
-            <div class="action-block">
-                <strong>${{escapeHtml(f.title)}}</strong><br>
-                ${{escapeHtml(f.recommendation || "")}}
-            </div>
-        `;
-    }});
-}}
-
-// LGPD
-const lgpdDiv = document.getElementById("lgpdContainer");
-
-if (!lgpdFindings.length) {{
-    lgpdDiv.innerHTML = `
-        <div class="action-block">
-            <strong>Sem achados específicos de LGPD</strong><br>
-            Nenhum indicador regulatório relevante foi identificado neste relatório.
-        </div>
-    `;
-}} else {{
-    lgpdFindings.forEach(f => {{
-        lgpdDiv.innerHTML += `
-            <div class="action-block">
-                <strong>${{escapeHtml(f.title)}}</strong><br>
-                ${{escapeHtml(f.recommendation || f.impact || "")}}
-            </div>
-        `;
-    }});
-}}
-
-// Select de melhoria
-const upgradePaths = {{
-    "E": ["D","C","B","A"],
-    "D": ["C","B","A"],
-    "C": ["B","A"],
-    "B": ["A"],
-    "A": []
-}};
-
-const select = document.getElementById("targetGradeSelect");
-
-(upgradePaths[currentGrade] || []).forEach(g => {{
-    const opt = document.createElement("option");
-    opt.value = g;
-    opt.text = g;
-    select.appendChild(opt);
-}});
-
-if (select.options.length > 0) {{
-    select.value = select.options[0].value;
-}}
-
-// Melhoria de score
-function recalculatePlan() {{
-    const target = select.value;
-    const div = document.getElementById("scoreImprovement");
-
-    div.innerHTML = "";
-
-    const rules = {{
-        "D": ["critical"],
-        "C": ["critical", "high"],
-            "B": ["critical", "high", "medium"],
-    "A": ["critical", "high", "medium", "low"]
-    }};
-
-    const needed = rules[target] || [];
-    const blockers = uniqByTitle(findings.filter(f =>
-        needed.includes(normalizeSeverity(f.severity))
-    ));
-
-    div.innerHTML += `<strong>${{currentGrade}} → ${{target}}</strong><br><br>`;
-
-    if (!blockers.length) {{
-        div.innerHTML += `
-            <div class="action-block">
-                Nenhuma ação crítica necessária para este nível.
-            </div>
-        `;
-        return;
-    }}
-
-    blockers.forEach(f => {{
-        div.innerHTML += `
-            <div class="action-block">
-                <strong>${{escapeHtml(f.title)}}</strong><br>
-                ${{escapeHtml(f.recommendation || f.impact || "")}}
-            </div>
-        `;
-    }});
-}}
-
-recalculatePlan();
-
-// Gráfico score
+// Chart
 new Chart(document.getElementById("scoreChart"), {{
     type: "doughnut",
     data: {{
@@ -554,32 +332,6 @@ new Chart(document.getElementById("scoreChart"), {{
             data: [
                 Number(data.security_score || 0),
                 Number(data.privacy_score || 0)
-            ]
-        }}]
-    }}
-}});
-
-// Gráfico severidade
-const counts = {{ critical: 0, high: 0, medium: 0, low: 0, info: 0 }};
-
-findings.forEach(f => {{
-    const sev = normalizeSeverity(f.severity);
-    if (counts[sev] !== undefined) {{
-        counts[sev] += 1;
-    }}
-}});
-
-new Chart(document.getElementById("severityChart"), {{
-    type: "doughnut",
-    data: {{
-        labels: ["Critical", "High", "Medium", "Low", "Info"],
-        datasets: [{{
-            data: [
-                counts.critical,
-                counts.high,
-                counts.medium,
-                counts.low,
-                counts.info
             ]
         }}]
     }}
