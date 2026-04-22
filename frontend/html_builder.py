@@ -262,9 +262,14 @@ select {{
 
 <script>
 const data = {json_data};
-if (data.pdf_url) {
-    document.getElementById("downloadPdfBtn").href = data.pdf_url;
-}
+window.addEventListener("DOMContentLoaded", function () {
+    if (data.pdf_url) {
+        const btn = document.getElementById("downloadPdfBtn");
+        if (btn) {
+            btn.href = data.pdf_url;
+        }
+    }
+});
 const findings = Array.isArray(data.findings) ? data.findings : [];
 
 function normalizeSeverity(s) {{
