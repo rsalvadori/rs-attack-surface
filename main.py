@@ -105,8 +105,12 @@ def calculate_scores(findings: list[dict]):
 
     if final_score >= 85:
         risk = "low"
-    elif final_score >= 60:
+    elif final_score >= 70:
+        risk = "low"
+    elif final_score >= 55:
         risk = "medium"
+    elif final_score >= 40:
+        risk = "high"
     else:
         risk = "high"
 
