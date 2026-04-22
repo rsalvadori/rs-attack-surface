@@ -11,39 +11,8 @@ class HttpxRunnerError(Exception):
 def check_httpx_installed() -> None:
     if shutil.which("httpx") is None:
         raise HttpxRunnerError(
-            "O binário 'httpx' não foi encontrado no PATH. Instale-o antes de continuar."
+            "O binário 'httpx' não foi encontrado no PATH."
         )
-
-
-def _extract_json_from_stdout(stdout: str, domain: str) -> dict[str, Any]:
-    stdout = stdout.strip()
-
-    if not stdout:
-        raise HttpxRunnerError(f"Nenhum resultado retornado pelo httpx para {domain}.")
-
-    # 1) tenta parsear tudo de uma vez
-    try:
-        return json.loads(stdout)
-    except json.JSONDecodeError:
-        pass
-
-    # 2) tenta parsear linha a linha, pegando a primeira linha que pareça JSON
-    for line in stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        if not line.startswith("{"):
-            continue
-        try:
-            return json.loads(line)
-        except json.JSONDecodeError:
-            continue
-
-    preview = stdout[:1000]
-    raise HttpxRunnerError(
-        f"Falha ao interpretar JSON do httpx para {domain}. "
-        f"Saída recebida (prévia): {preview}"
-    )
 
 
 def run_httpx(domain: str) -> dict[str, Any]:
@@ -58,6 +27,9 @@ def run_httpx(domain: str) -> dict[str, Any]:
         "-status-code",
         "-title",
         "-tech-detect",
+        "-web-server",
+        "-ip",
+        "-cdn"
     ]
 
     try:
@@ -69,12 +41,38 @@ def run_httpx(domain: str) -> dict[str, Any]:
             check=False,
         )
     except subprocess.TimeoutExpired as exc:
-        raise HttpxRunnerError(f"Timeout ao executar httpx para {domain}.") from exc
+        raise HttpxRunnerError(f"Timeout httpx: {domain}") from exc
     except Exception as exc:
-        raise HttpxRunnerError(f"Erro ao executar httpx: {exc}") from exc
+        raise HttpxRunnerError(f"Erro httpx: {exc}") from exc
 
-    if result.returncode != 0 and not result.stdout.strip():
-        stderr = result.stderr.strip() or "sem detalhes"
-        raise HttpxRunnerError(f"httpx retornou erro: {stderr}")
+    stdout = (result.stdout or "").strip()
 
-    return _extract_json_from_stdout(result.stdout, domain)
+    if not stdout:
+        raise HttpxRunnerError(f"Sem saída do httpx para {domain}")
+
+    # pega PRIMEIRA linha válida JSON
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+
+        try:
+            data = json.loads(line)
+
+            # 🔥 NORMALIZAÇÃO PADRÃO (IMPORTANTE)
+            return {
+                "url": data.get("url"),
+                "final_url": data.get("final_url"),
+                "status_code": data.get("status_code"),
+                "title": data.get("title"),
+                "technologies": data.get("technologies", []),
+                "webserver": data.get("webserver"),
+                "ip": data.get("ip"),
+                "cdn": data.get("cdn"),
+                "response_time": data.get("response_time"),
+            }
+
+        except Exception:
+            continue
+
+    raise HttpxRunnerError(f"Falha parse JSON httpx: {domain}")

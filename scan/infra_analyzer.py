@@ -8,26 +8,32 @@ except:
     DNS_AVAILABLE = False
 
 
+# =========================
+# IPs (MELHORADO)
+# =========================
 def get_ips(domain):
-    ips = []
+    ips = set()
 
     if DNS_AVAILABLE:
         try:
             answers = dns.resolver.resolve(domain, "A")
-            ips = [str(r) for r in answers]
+            for r in answers:
+                ips.add(str(r))
         except:
             pass
 
-    if not ips:
-        try:
-            ip = socket.gethostbyname(domain)
-            ips.append(ip)
-        except:
-            pass
+    try:
+        ip = socket.gethostbyname(domain)
+        ips.add(ip)
+    except:
+        pass
 
-    return list(set(ips))
+    return list(ips)
 
 
+# =========================
+# DNS
+# =========================
 def get_dns_records(domain):
     records = {
         "A": [],
@@ -56,6 +62,9 @@ def get_dns_records(domain):
     return records
 
 
+# =========================
+# PORT SCAN LEVE
+# =========================
 def detect_services(ip):
     services = []
 
@@ -69,7 +78,7 @@ def detect_services(ip):
 
     for port, name in ports.items():
         try:
-            sock = socket.create_connection((ip, port), timeout=1.5)
+            sock = socket.create_connection((ip, port), timeout=1)
             sock.close()
             services.append(name)
         except:
@@ -78,6 +87,9 @@ def detect_services(ip):
     return services
 
 
+# =========================
+# GEO + ISP
+# =========================
 def get_geo(ip):
     try:
         response = requests.get(f"http://ip-api.com/json/{ip}", timeout=3)
@@ -98,13 +110,27 @@ def get_geo(ip):
     return None
 
 
+# =========================
+# REVERSE DNS (NOVO)
+# =========================
+def get_reverse_dns(ip):
+    try:
+        return socket.gethostbyaddr(ip)[0]
+    except:
+        return None
+
+
+# =========================
+# CORE
+# =========================
 def analyze_infrastructure(domain):
 
     result = {
         "ips": [],
         "dns": {},
         "services": [],
-        "geo": {}
+        "geo": {},
+        "hostnames": {}  # 🔥 NOVO
     }
 
     ips = get_ips(domain)
@@ -115,12 +141,19 @@ def analyze_infrastructure(domain):
     all_services = set()
 
     for ip in ips:
+        # serviços
         services = detect_services(ip)
         all_services.update(services)
 
+        # geo
         geo = get_geo(ip)
         if geo:
             result["geo"][ip] = geo
+
+        # reverse dns
+        hostname = get_reverse_dns(ip)
+        if hostname:
+            result["hostnames"][ip] = hostname
 
     result["services"] = list(all_services)
 
