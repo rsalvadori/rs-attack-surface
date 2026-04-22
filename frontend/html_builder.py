@@ -155,6 +155,24 @@ select {{
             <div><strong>Alvo:</strong> {target}</div>
         </div>
     </div>
+
+    <div style="margin-top:15px;">
+        <a id="downloadPdfBtn" href="#" target="_blank" style="
+            background:#dc2626;
+            color:white;
+            padding:10px 16px;
+            border-radius:8px;
+            text-decoration:none;
+            font-weight:bold;
+            display:inline-block;
+        ">
+            ⬇ Baixar relatório em PDF
+        </a>
+    </div>
+
+
+
+
 </div>
 
 <div class="kpis">
@@ -244,6 +262,9 @@ select {{
 
 <script>
 const data = {json_data};
+if (data.pdf_url) {
+    document.getElementById("downloadPdfBtn").href = data.pdf_url;
+}
 const findings = Array.isArray(data.findings) ? data.findings : [];
 
 function normalizeSeverity(s) {{

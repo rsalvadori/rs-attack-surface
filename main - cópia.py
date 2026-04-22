@@ -322,7 +322,6 @@ async def scan_report(request: Request):
     html_path = os.path.join(client_dir, html_name)
 
     with open(html_path, "w", encoding="utf-8") as f:
-        result["pdf_url"] = f"/reports/{safe_domain}/{pdf_name}"
         f.write(generate_html_dashboard(result))
 
     try:
