@@ -19,8 +19,9 @@ def run_nuclei(domain: str) -> list[dict]:
 
         # performance conservadora para container
         "-rl", "10",
-        "-c", "5",
-        "-bs", "5",
+        "-c", "2",
+        "-bs", "2",
+        "-rl 5,"
 
         # timeout interno do nuclei
         "-timeout", "15",
