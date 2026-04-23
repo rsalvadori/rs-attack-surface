@@ -11,32 +11,23 @@ def run_nuclei(domain: str) -> list[dict]:
         nuclei_path,
         "-u", target,
 
-        # escopo enxuto e funcional
         "-tags", "misconfig,exposure,default-login",
-
-        # remove categorias pesadas / irrelevantes
         "-exclude-tags", "dos,fuzz,bruteforce,token,secret,creds,auth-bypass,global-matchers",
 
-        # performance conservadora para container
         "-rl", "2",
         "-c", "1",
         "-bs", "1",
-  
 
-        # timeout interno do nuclei
-        "-timeout", "15",
-        "-retries", "1",
+        "-timeout", "10",
+        "-retries", "0",
+        "-max-host-error", "3",
 
-        # estabilidade
         "-no-interactsh",
         "-no-color",
-
-        # output
         "-silent",
         "-nc",
         "-j"
     ]
-
     print("TARGET NUCLEI:", target)
     print("COMANDO:", " ".join(command))
 
