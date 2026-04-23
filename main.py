@@ -248,11 +248,7 @@ def execute_scan(domain: str):
         infra_data = {}
 
     try:
-        # só roda nuclei se ainda não tem muitos achados (evita sobrecarga)
-        if len(findings) < 5:
-            findings.extend(analyze_nuclei(domain) or [])
-        else:
-            print("NUCLEI SKIPPED (já existem achados suficientes)")
+        findings.extend(analyze_nuclei(domain) or [])
     except Exception as e:
         print("ERRO NUCLEI:", str(e))
 
