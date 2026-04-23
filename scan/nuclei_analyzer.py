@@ -18,9 +18,9 @@ def run_nuclei(domain: str) -> list[dict]:
         "-exclude-tags", "dos,fuzz,bruteforce,token,secret,creds,auth-bypass,global-matchers",
 
         # performance conservadora para container
-        "-rl", "5",
-        "-c", "2",
-        "-bs", "2",
+        "-rl", "2",
+        "-c", "1",
+        "-bs", "1",
   
 
         # timeout interno do nuclei
