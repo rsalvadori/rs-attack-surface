@@ -11,7 +11,7 @@ def run_nuclei(domain: str) -> list[dict]:
         nuclei_path,
         "-u", target,
 
-        "-id", "http-missing-security-headers,default-login",
+        "-id", "default-login",
         "-exclude-tags", "dos,fuzz,bruteforce,token,secret,creds,auth-bypass,global-matchers",
 
         "-rl", "2",
