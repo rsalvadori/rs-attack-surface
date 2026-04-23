@@ -28,29 +28,48 @@ def run_nuclei(domain: str) -> list[dict]:
         "-nc",
         "-j"
     ]
+
     print("TARGET NUCLEI:", target)
     print("COMANDO:", " ".join(command))
 
-    result = subprocess.run(
-        command,
-        capture_output=True,
-        text=True
-    )
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=25
+        )
+    except subprocess.TimeoutExpired:
+        return [{
+            "title": "Scan de vulnerabilidades interrompido",
+            "severity": "info",
+            "impact": "Execução do Nuclei excedeu o tempo limite do ambiente.",
+            "recommendation": "Executar varredura completa em ambiente dedicado."
+        }]
 
     stdout = (result.stdout or "").strip()
-    stderr = (result.stderr or "").strip()
+    stderr = (result.stderr or "").strip().lower()
 
     print("STDOUT PREVIEW:", stdout[:500])
     if stderr:
         print("STDERR PREVIEW:", stderr[:500])
 
-    # erro real do nuclei
+    # 🚨 TRATAMENTO ESPECÍFICO DO ERRO DE THREAD
+    if "failed to create new os thread" in stderr:
+        return [{
+            "title": "Limite de execução atingido no scan de vulnerabilidades",
+            "severity": "info",
+            "impact": "O ambiente limitou a execução do scanner (limite de threads).",
+            "recommendation": "Executar análise completa em ambiente dedicado fora da aplicação web."
+        }]
+
+    # erro genérico do nuclei
     if result.returncode != 0 and not stdout:
         return [{
             "title": "Falha na execução do scan de vulnerabilidades",
             "severity": "info",
             "impact": f"O Nuclei não conseguiu concluir a execução. Detalhe: {stderr[:300] or 'erro não detalhado'}",
-            "recommendation": "Validar o ambiente de execução e os templates carregados."
+            "recommendation": "Validar o ambiente de execução e os parâmetros do scanner."
         }]
 
     # sem output
@@ -83,7 +102,6 @@ def run_nuclei(domain: str) -> list[dict]:
         severity = str(info.get("severity", "info") or "info").strip().lower()
         matched = str(data.get("matched-at") or data.get("host") or target).strip()
 
-        # chave de deduplicação
         dedupe_key = (template_id, name, matched)
         if dedupe_key in seen:
             continue
