@@ -637,33 +637,33 @@ setInterval(async () => {{
 
     if (reportId === null || nucleiLoaded) return;
 
-    try {
-        const res = await fetch(`/report-json?id=${reportId}`);
+    try {{
+
+        const res = await fetch(`/report-json?id=${{reportId}}`);
         const updated = await res.json();
 
-        if (updated.nuclei_done && updated.nuclei_findings) {
+        if (updated.nuclei_done && updated.nuclei_findings) {{
 
             nucleiLoaded = true;
 
             const vulnDiv = document.getElementById("vulnContainer");
 
-
-        
             updated.nuclei_findings.forEach(f => {{
                 vulnDiv.innerHTML += `
                     <div class="action-block">
                         <strong>${{escapeHtml(f.title)}}</strong><br>
-                ${{escapeHtml(f.impact || "")}}
+                        ${{escapeHtml(f.impact || "")}}
                     </div>
                 `;
             }});
 
-        }
+        }}
 
-    } catch (e) {}
+    }} catch (e) {{
+
+    }}
 
 }}, 4000);
-
 
 </script>
 
