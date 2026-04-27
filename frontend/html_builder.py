@@ -137,10 +137,45 @@ select {{
 </head>
 
 <body>
-<div class="container">
+<div class="header" style="
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:30px;
+    padding-bottom:12px;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+">
 
-<div class="header">
-    <div class="title">RS Attack Surface</div>
+    <div style="display:flex; align-items:center; gap:12px;">
+        <img src="/frontend/logo.png" style="height:38px;">
+        <div style="font-size:12px; opacity:0.7;">Attack Surface Intelligence</div>
+    </div>
+
+    <div style="display:flex; gap:16px; align-items:center;">
+
+        <a href="mailto:comercial@rsdatasecurity.com.br" style="
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color:#0b1220;
+            padding:6px 12px;
+            border-radius:6px;
+            text-decoration:none;
+            font-weight:bold;
+            font-size:13px;
+        ">
+            Fale com especialista
+        </a>
+
+        <a href="https://rsdatasecurity.com.br" target="_blank" style="
+            color:#4ade80;
+            text-decoration:none;
+            font-size:13px;
+            font-weight:bold;
+        ">
+            Nosso site →
+        </a>
+
+    </div>
+
 </div>
 
 <div class="card">
