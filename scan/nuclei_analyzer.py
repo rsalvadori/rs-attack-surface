@@ -11,10 +11,10 @@ def run_nuclei(domain: str) -> list[dict]:
         nuclei_path,
         "-u", target,
 
-        "-id", "http-missing-security-headers,",
+        "-id", "http-missing-security-headers",
         "-exclude-tags", "dos,fuzz,bruteforce,token,secret,creds,auth-bypass,global-matchers",
 
-        "-rl", "2",
+        "-rl", "1",
         "-c", "1",
         "-bs", "1",
 
@@ -26,7 +26,9 @@ def run_nuclei(domain: str) -> list[dict]:
         "-no-color",
         "-silent",
         "-nc",
-        "-j"
+        "-jsonl",
+        "-stats", "false",
+        "-bulk-size", "1",
     ]
 
     print("TARGET NUCLEI:", target)
