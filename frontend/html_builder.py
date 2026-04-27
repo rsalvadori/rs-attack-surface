@@ -633,7 +633,7 @@ new Chart(document.getElementById("severityChart"), {{
 }});
 
 
-setInterval(async () => {
+setInterval(async () => {{
 
     if (reportId === null || nucleiLoaded) return;
 
@@ -662,7 +662,7 @@ setInterval(async () => {
 
     } catch (e) {}
 
-}, 4000);
+}}, 4000);
 
 
 </script>
