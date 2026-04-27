@@ -326,7 +326,7 @@ def run_nuclei_background(domain, json_path):
 
 @app.get("/report-json")
 def get_report_json(id: str):
-    path = f"reports/{id}.json"
+    path = f"reports/{id.split('_')[0]}/{id}.json"
 
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Not found")
