@@ -7,6 +7,8 @@ from urllib.parse import urlparse
 from datetime import datetime
 import os
 import re
+import threading
+import json
 
 from scan.httpx_runner import run_httpx
 from scan.tls_analyzer import analyze_tls
@@ -247,10 +249,6 @@ def execute_scan(domain: str):
     except Exception:
         infra_data = {}
 
-    try:
-        findings.extend(analyze_nuclei(domain) or [])
-    except Exception as e:
-        print("ERRO NUCLEI:", str(e))
 
     enriched = []
     for f in findings:
@@ -298,6 +296,48 @@ def execute_scan(domain: str):
     }
 
 
+############### FUNÇÃO BACKGROUND (no main.py mesmo)
+
+
+def run_nuclei_background(domain, json_path):
+    try:
+        findings = analyze_nuclei(domain)
+    except Exception:
+        findings = []
+
+    try:
+        with open(json_path, "r") as f:
+            data = json.load(f)
+
+        data["nuclei_findings"] = findings
+        data["nuclei_done"] = True
+
+        with open(json_path, "w") as f:
+            json.dump(data, f)
+
+    except Exception as e:
+        print("NUCLEI BACKGROUND ERROR:", str(e))
+
+############### FIM - FUNÇÃO BACKGROUND (no main.py mesmo)
+
+
+
+############### NOVO ENDPOINT
+
+@app.get("/report-json")
+def get_report_json(id: str):
+    path = f"reports/{id}.json"
+
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    with open(path) as f:
+        return json.load(f)
+
+
+############### FIM - NOVO ENDPOINT
+
+
 @app.post("/scan-report")
 async def scan_report(request: Request):
 
@@ -315,6 +355,24 @@ async def scan_report(request: Request):
 
     client_dir = os.path.join("reports", safe_domain)
     os.makedirs(client_dir, exist_ok=True)
+
+############### NOVO BLOCO NUCLEI
+    report_id = f"{safe_domain}_{timestamp}"
+
+    json_path = os.path.join(client_dir, f"{report_id}.json")
+
+    with open(json_path, "w") as f:
+        result["nuclei_done"] = False
+        result["nuclei_findings"] = []
+        result["report_id"] = report_id   # 👈 ESSENCIAL
+        json.dump(result, f)
+
+    threading.Thread(
+        target=run_nuclei_background,
+        args=(domain, json_path)
+    ).start()
+############### FIM
+
 
     pdf_name = f"report_{safe_domain}_{timestamp}.pdf"
     pdf_path = os.path.join(client_dir, pdf_name)
@@ -344,5 +402,6 @@ async def scan_report(request: Request):
         "score": result.get("score"),
         "risk": result.get("risk"),
         "executive_summary": result.get("executive_summary"),
-        "conclusion": result.get("conclusion")
+        "conclusion": result.get("conclusion"),
+        "report_id": report_id
     }
