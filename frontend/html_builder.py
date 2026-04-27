@@ -635,7 +635,7 @@ new Chart(document.getElementById("severityChart"), {{
 
 setInterval(async () => {
 
-    if (!reportId || nucleiLoaded) return;
+    if (!reportId || nucleiLoaded) {{ return; }}
 
     try {
         const res = await fetch(`/report-json?id=${reportId}`);
