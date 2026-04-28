@@ -18,9 +18,10 @@ def run_nuclei(domain: str) -> list[dict]:
         "-c", "1",
         "-bs", "1",
 
-        "-timeout", "10",
+        "-timeout", "5",
         "-retries", "0",
         "-max-host-error", "3",
+        "-rate-limit", "1",
 
         "-no-interactsh",
         "-no-color",
