@@ -10,9 +10,21 @@ import re
 import threading
 import json
 
+import requests
+
+def run_nuclei_scan(domain: str):
+
+    resp = requests.get(
+        "http://163.176.240.125:8000/scan",
+        params={"domain": domain},
+        headers={"x-api-key": "RS-SECRET-123"},
+        timeout=30
+    )
+
+    return resp.json()
+
 from scan.httpx_runner import run_httpx
 from scan.tls_analyzer import analyze_tls
-from scan.nuclei_analyzer import analyze_nuclei
 from scan.lgpd_analyzer import analyze_lgpd
 from scan.infra_analyzer import analyze_infrastructure
 from scan.finding_enricher import enrich_finding
@@ -258,6 +270,23 @@ def execute_scan(domain: str):
             enriched.append(f)
     findings = enriched
 
+    #####
+    try:
+        nuclei_data = run_nuclei_scan(domain)
+        nuclei_findings = nuclei_data.get("findings", [])
+
+        # normaliza pro seu formato
+        for f in nuclei_findings:
+            findings.append({
+                "title": f.get("title"),
+                "severity": f.get("severity", "info"),
+                "impact": f.get("evidence", "")
+            })
+
+    except Exception:
+        pass
+
+
     score, risk, sec, priv = calculate_scores(findings)
 
     summary = generate_executive_summary({
@@ -301,7 +330,15 @@ def execute_scan(domain: str):
 
 def run_nuclei_background(domain, json_path):
     try:
-        findings = analyze_nuclei(domain)
+        resp = requests.get(
+            "http://163.176.240.125:8000/scan",
+            params={"domain": domain},
+            headers={"x-api-key": "RS-SECRET-123"},
+            timeout=30
+        )
+
+        data_resp = resp.json()
+        findings = data_resp.get("findings", [])
     except Exception:
         findings = []
 
@@ -370,7 +407,8 @@ async def scan_report(request: Request):
 
     threading.Thread(
         target=run_nuclei_background,
-        args=(domain, json_path)
+        args=(domain, json_path),
+        daemon=True
     ).start()
 ############### FIM
 

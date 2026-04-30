@@ -475,19 +475,32 @@ if (!findings.length) {{
             <div style="border-left:4px solid ${{border}}; padding:10px; margin-bottom:10px;">
                 <strong>${{escapeHtml(f.title)}}</strong><br>
                 <span class="small">Severidade: ${{escapeHtml(f.severity || "")}}</span><br>
-                ${{escapeHtml(f.impact || "")}}
+                ${{escapeHtml(f.evidence || "")}}
             </div>
         `;
     }});
 }}
 
-// 2. LOADING DO NUCLEI (SEMPRE POR ÚLTIMO)
+// 2. NUCLEI (LOADING + RESULTADO INICIAL)
 if (!data.nuclei_done) {{
+
     vulnDiv.innerHTML += `
         <div class="action-block">
             🔍 Executando análise aprofundada (Nuclei)...
         </div>
     `;
+
+}} else if (data.nuclei_findings && data.nuclei_findings.length) {{
+
+    data.nuclei_findings.forEach(f => {{
+        vulnDiv.innerHTML += `
+            <div class="action-block">
+                <strong>${{escapeHtml(f.title)}}</strong><br>
+                ${{escapeHtml(f.severity || "")}}
+            </div>
+        `;
+    }});
+
 }}
 
 // Plano de ação
