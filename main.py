@@ -329,6 +329,8 @@ def execute_scan(domain: str):
 
 
 def run_nuclei_background(domain, json_path):
+    print("NUCLEI BACKGROUND START:", domain, json_path)
+
     try:
         resp = requests.get(
             "http://163.176.240.125:8000/scan",
@@ -337,12 +339,21 @@ def run_nuclei_background(domain, json_path):
             timeout=30
         )
 
+        print("NUCLEI WORKER STATUS:", resp.status_code)
+        print("NUCLEI WORKER BODY:", resp.text[:500])
+
         data_resp = resp.json()
         findings = data_resp.get("findings", [])
-    except Exception:
+
+        print("NUCLEI FINDINGS COUNT:", len(findings))
+
+    except Exception as e:
+        print("NUCLEI BACKGROUND REQUEST ERROR:", str(e))
         findings = []
 
     try:
+        print("NUCLEI JSON PATH:", json_path)
+
         with open(json_path, "r") as f:
             data = json.load(f)
 
@@ -352,8 +363,10 @@ def run_nuclei_background(domain, json_path):
         with open(json_path, "w") as f:
             json.dump(data, f)
 
+        print("NUCLEI JSON UPDATED")
+
     except Exception as e:
-        print("NUCLEI BACKGROUND ERROR:", str(e))
+        print("NUCLEI BACKGROUND WRITE ERROR:", str(e))
 
 ############### FIM - FUNÇÃO BACKGROUND (no main.py mesmo)
 
