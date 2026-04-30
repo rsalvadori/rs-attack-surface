@@ -18,7 +18,7 @@ def run_nuclei_scan(domain: str):
         "http://163.176.240.125:8000/scan",
         params={"domain": domain},
         headers={"x-api-key": "RS-SECRET-123"},
-        timeout=30
+        timeout=120
     )
 
     return resp.json()
@@ -336,7 +336,7 @@ def run_nuclei_background(domain, json_path):
             "http://163.176.240.125:8000/scan",
             params={"domain": domain},
             headers={"x-api-key": "RS-SECRET-123"},
-            timeout=30
+            timeout=120
         )
 
         print("NUCLEI WORKER STATUS:", resp.status_code)
