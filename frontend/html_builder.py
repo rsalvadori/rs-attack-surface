@@ -485,7 +485,7 @@ if (!findings.length) {{
 if (!data.nuclei_done) {{
 
     vulnDiv.innerHTML += `
-        <div class="action-block">
+        <div id="nucleiLoading" class="action-block">
             🔍 Executando análise aprofundada (Nuclei)...
         </div>
     `;
@@ -655,20 +655,35 @@ setInterval(async () => {{
         const res = await fetch(`/report-json?id=${{reportId}}`);
         const updated = await res.json();
 
-        if (updated.nuclei_done && updated.nuclei_findings) {{
+        if (updated.nuclei_done) {{
 
             nucleiLoaded = true;
 
             const vulnDiv = document.getElementById("vulnContainer");
 
-            updated.nuclei_findings.forEach(f => {{
+            const loading = document.getElementById("nucleiLoading");
+            if (loading) loading.remove();
+
+            if (!updated.nuclei_findings || updated.nuclei_findings.length === 0) {{
+
                 vulnDiv.innerHTML += `
                     <div class="action-block">
-                        <strong>${{escapeHtml(f.title)}}</strong><br>
-                        ${{escapeHtml(f.impact || "")}}
+                        Nenhuma vulnerabilidade adicional identificada pelo Nuclei.
                     </div>
                 `;
-            }});
+
+            }} else {{
+
+                updated.nuclei_findings.forEach(f => {{
+                    vulnDiv.innerHTML += `
+                        <div class="action-block">
+                            <strong>${{escapeHtml(f.title)}}</strong><br>
+                            ${{escapeHtml(f.evidence || f.impact || "")}}
+                        </div>
+                    `;
+                }});
+
+            }}
 
         }}
 

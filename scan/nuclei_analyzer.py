@@ -11,27 +11,31 @@ def run_nuclei(domain: str) -> list[dict]:
         nuclei_path,
         "-u", target,
 
-        "-id", "http-missing-security-headers",
+    # 👇 ESCOPo REAL
+        "-tags", "misconfig,exposure,ssl",
+
+    # 👇 EVITA LIXO / COISAS PESADAS
         "-exclude-tags", "dos,fuzz,bruteforce,token,secret,creds,auth-bypass,global-matchers",
 
-        "-rl", "1",
+    # 👇 PERFORMANCE CONTROLADA (RAILWAY SAFE)
+        "-rl", "2",
         "-c", "1",
         "-bs", "1",
 
-        "-timeout", "5",
-        "-retries", "0",
-        "-max-host-error", "3",
-        "-rate-limit", "1",
+    # 👇 NÃO DESISTE FÁCIL
+        "-timeout", "10",
+        "-retries", "1",
+        "-max-host-error", "5",
 
+    # 👇 NÃO USA INTERACTSH (CRÍTICO PRA RAILWAY)
         "-no-interactsh",
+
+    # 👇 OUTPUT LIMPO
         "-no-color",
         "-silent",
         "-nc",
         "-jsonl",
-        "-stats", "false",
-        "-bulk-size", "1",
     ]
-
     print("TARGET NUCLEI:", target)
     print("COMANDO:", " ".join(command))
 
