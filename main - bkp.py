@@ -10,9 +10,21 @@ import re
 import threading
 import json
 
+import requests
+
+def run_nuclei_scan(domain: str):
+
+    resp = requests.get(
+        "http://163.176.240.125:8000/scan",
+        params={"domain": domain},
+        headers={"x-api-key": "RS-SECRET-123"},
+        timeout=120
+    )
+
+    return resp.json()
+
 from scan.httpx_runner import run_httpx
 from scan.tls_analyzer import analyze_tls
-from scan.nuclei_analyzer import analyze_nuclei
 from scan.lgpd_analyzer import analyze_lgpd
 from scan.infra_analyzer import analyze_infrastructure
 from scan.finding_enricher import enrich_finding
@@ -258,6 +270,23 @@ def execute_scan(domain: str):
             enriched.append(f)
     findings = enriched
 
+    #####
+    try:
+        nuclei_data = run_nuclei_scan(domain)
+        nuclei_findings = nuclei_data.get("findings", [])
+
+        # normaliza pro seu formato
+        for f in nuclei_findings:
+            findings.append({
+                "title": f.get("title"),
+                "severity": f.get("severity", "info"),
+                "impact": f.get("evidence", "")
+            })
+
+    except Exception:
+        pass
+
+
     score, risk, sec, priv = calculate_scores(findings)
 
     summary = generate_executive_summary({
@@ -300,12 +329,31 @@ def execute_scan(domain: str):
 
 
 def run_nuclei_background(domain, json_path):
+    print("NUCLEI BACKGROUND START:", domain, json_path)
+
     try:
-        findings = analyze_nuclei(domain)
-    except Exception:
+        resp = requests.get(
+            "http://163.176.240.125:8000/scan",
+            params={"domain": domain},
+            headers={"x-api-key": "RS-SECRET-123"},
+            timeout=120
+        )
+
+        print("NUCLEI WORKER STATUS:", resp.status_code)
+        print("NUCLEI WORKER BODY:", resp.text[:500])
+
+        data_resp = resp.json()
+        findings = data_resp.get("findings", [])
+
+        print("NUCLEI FINDINGS COUNT:", len(findings))
+
+    except Exception as e:
+        print("NUCLEI BACKGROUND REQUEST ERROR:", str(e))
         findings = []
 
     try:
+        print("NUCLEI JSON PATH:", json_path)
+
         with open(json_path, "r") as f:
             data = json.load(f)
 
@@ -315,8 +363,10 @@ def run_nuclei_background(domain, json_path):
         with open(json_path, "w") as f:
             json.dump(data, f)
 
+        print("NUCLEI JSON UPDATED")
+
     except Exception as e:
-        print("NUCLEI BACKGROUND ERROR:", str(e))
+        print("NUCLEI BACKGROUND WRITE ERROR:", str(e))
 
 ############### FIM - FUNÇÃO BACKGROUND (no main.py mesmo)
 
@@ -370,7 +420,8 @@ async def scan_report(request: Request):
 
     threading.Thread(
         target=run_nuclei_background,
-        args=(domain, json_path)
+        args=(domain, json_path),
+        daemon=True
     ).start()
 ############### FIM
 

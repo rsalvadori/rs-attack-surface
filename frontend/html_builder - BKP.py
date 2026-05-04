@@ -297,6 +297,8 @@ select {{
 
 <script>
 const data = {json_data};
+const reportId = data.report_id;
+let nucleiLoaded = false;
 window.addEventListener("DOMContentLoaded", function () {{
     if (data.pdf_url) {{
         const btn = document.getElementById("downloadPdfBtn");
@@ -458,6 +460,7 @@ if (services.length) {{
 // Vulnerabilidades
 const vulnDiv = document.getElementById("vulnContainer");
 
+// 1. Renderiza findings normais
 if (!findings.length) {{
     vulnDiv.innerHTML = `<div class="muted">Nenhuma vulnerabilidade identificada.</div>`;
 }} else {{
@@ -472,10 +475,32 @@ if (!findings.length) {{
             <div style="border-left:4px solid ${{border}}; padding:10px; margin-bottom:10px;">
                 <strong>${{escapeHtml(f.title)}}</strong><br>
                 <span class="small">Severidade: ${{escapeHtml(f.severity || "")}}</span><br>
-                ${{escapeHtml(f.impact || "")}}
+                ${{escapeHtml(f.evidence || "")}}
             </div>
         `;
     }});
+}}
+
+// 2. NUCLEI (LOADING + RESULTADO INICIAL)
+if (!data.nuclei_done) {{
+
+    vulnDiv.innerHTML += `
+        <div id="nucleiLoading" class="action-block">
+            🔍 Executando análise aprofundada (Nuclei)...
+        </div>
+    `;
+
+}} else if (data.nuclei_findings && data.nuclei_findings.length) {{
+
+    data.nuclei_findings.forEach(f => {{
+        vulnDiv.innerHTML += `
+            <div class="action-block">
+                <strong>${{escapeHtml(f.title)}}</strong><br>
+                ${{escapeHtml(f.severity || "")}}
+            </div>
+        `;
+    }});
+
 }}
 
 // Plano de ação
@@ -619,6 +644,55 @@ new Chart(document.getElementById("severityChart"), {{
         }}]
     }}
 }});
+
+
+setInterval(async () => {{
+
+    if (reportId === null || nucleiLoaded) return;
+
+    try {{
+
+        const res = await fetch(`/report-json?id=${{reportId}}`);
+        const updated = await res.json();
+
+        if (updated.nuclei_done) {{
+
+            nucleiLoaded = true;
+
+            const vulnDiv = document.getElementById("vulnContainer");
+
+            const loading = document.getElementById("nucleiLoading");
+            if (loading) loading.remove();
+
+            if (!updated.nuclei_findings || updated.nuclei_findings.length === 0) {{
+
+                vulnDiv.innerHTML += `
+                    <div class="action-block">
+                        Nenhuma vulnerabilidade adicional identificada pelo Nuclei.
+                    </div>
+                `;
+
+            }} else {{
+
+                updated.nuclei_findings.forEach(f => {{
+                    vulnDiv.innerHTML += `
+                        <div class="action-block">
+                            <strong>${{escapeHtml(f.title)}}</strong><br>
+                            ${{escapeHtml(f.evidence || f.impact || "")}}
+                        </div>
+                    `;
+                }});
+
+            }}
+
+        }}
+
+    }} catch (e) {{
+
+    }}
+
+}}, 4000);
+
 </script>
 
 </body>
