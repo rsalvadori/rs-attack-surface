@@ -308,7 +308,7 @@ window.addEventListener("DOMContentLoaded", function () {{
         }}
     }}
 }});
-const findings = Array.isArray(data.findings) ? data.findings : [];
+let findings = Array.isArray(data.findings) ? data.findings : [];
 
 function normalizeSeverity(s) {{
     return String(s || "").toLowerCase();
@@ -669,6 +669,7 @@ setInterval(async () => {{
        
            // 🔥 ATUALIZA FINDINGS
            const findingsUpdated = Array.isArray(updated.findings) ? updated.findings : [];
+           findings = findingsUpdated;
 
            // 🔥 REPROCESSA KPIs
            document.getElementById("kpiVuln").innerText = findingsUpdated.length;
