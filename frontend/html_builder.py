@@ -656,38 +656,106 @@ setInterval(async () => {{
         const res = await fetch(`/report-json?id=${{reportId}}`);
         const updated = await res.json();
 
-        if (updated.nuclei_done) {{
+       if (updated.nuclei_done) {{
 
-            nucleiLoaded = true;
+           nucleiLoaded = true;
 
-            const vulnDiv = document.getElementById("vulnContainer");
+           // REMOVE LOADING
+           const loading = document.getElementById("nucleiLoading");
+           if (loading) loading.remove();
 
-            const loading = document.getElementById("nucleiLoading");
-            if (loading) loading.remove();
+           // 🔥 SUBSTITUI DATA GLOBAL
+           window.data = updated;
+       
+           // 🔥 ATUALIZA FINDINGS
+           const findingsUpdated = Array.isArray(updated.findings) ? updated.findings : [];
 
-            if (!updated.nuclei_findings || updated.nuclei_findings.length === 0) {{
+           // 🔥 REPROCESSA KPIs
+           document.getElementById("kpiVuln").innerText = findingsUpdated.length;
 
-                vulnDiv.innerHTML += `
-                    <div class="action-block">
-                        Nenhuma vulnerabilidade adicional identificada pelo Nuclei.
-                    </div>
-                `;
+           const lgpdUpdated = uniqByTitle(findingsUpdated.filter(isLgpdFinding));
+           document.getElementById("kpiLgpd").innerText = lgpdUpdated.length;
 
-            }} else {{
+           document.getElementById("kpiScore").innerText = updated.score;
 
-                updated.nuclei_findings.forEach(f => {{
-                    vulnDiv.innerHTML += `
-                        <div class="action-block">
-                            <strong>${{escapeHtml(f.title)}}</strong><br>
-                            ${{escapeHtml(f.evidence || f.impact || "")}}
-                        </div>
-                    `;
-                }});
+           // 🔥 SCORE
+           const newGrade = getGrade(updated.score);
+           document.getElementById("scoreValue").innerText = updated.score;
+           document.getElementById("scoreGrade").innerText = newGrade;
+           document.getElementById("scoreCircle").style.background = getColorByGrade(newGrade);
 
-            }}
+           // 🔥 RISCO
+           document.getElementById("riskLevel").innerText = String(updated.risk || "").toUpperCase();
 
-        }}
+           // 🔥 LIMPA VULNERABILIDADES
+           const vulnDiv = document.getElementById("vulnContainer");
+           vulnDiv.innerHTML = "";
 
+           // 🔥 RENDERIZA TUDO DE NOVO
+           findingsUpdated.forEach(f => {{
+
+               let border = "#334155";
+               const sev = normalizeSeverity(f.severity);
+
+               if (sev === "critical" || sev === "high") border = "#dc2626";
+               else if (sev === "medium") border = "#f59e0b";
+
+               vulnDiv.innerHTML += `
+                   <div style="border-left:4px solid ${{border}}; padding:10px; margin-bottom:10px;">
+                       <strong>${{escapeHtml(f.title)}}</strong><br>
+                       <span class="small">Severidade: ${{escapeHtml(f.severity || "")}}</span><br>
+                       ${{escapeHtml(f.evidence || f.impact || "")}}
+                   </div>
+               `;
+           }});
+
+           // 🔥 TOP FINDINGS
+           const topList = document.getElementById("topFindings");
+           topList.innerHTML = "";
+
+           const topFindingsUpdated = Array.isArray(updated.top_findings) && updated.top_findings.length
+               ? updated.top_findings
+               : findingsUpdated
+                   .filter(f => normalizeSeverity(f.severity) !== "info")
+                   .slice(0, 3);
+
+           if (!topFindingsUpdated.length) {{
+               topList.innerHTML = "<li>Nenhum risco relevante identificado.</li>";
+           }} else {{
+               topFindingsUpdated.forEach(f => {{
+                   topList.innerHTML += `<li>${{escapeHtml(f.title)}}</li>`;
+               }});
+           }}
+
+           // 🔥 REFAZ GRÁFICO DE SEVERIDADE
+           const counts = {{ critical: 0, high: 0, medium: 0, low: 0, info: 0 }};
+
+           findingsUpdated.forEach(f => {{
+               const sev = normalizeSeverity(f.severity);
+               if (counts[sev] !== undefined) counts[sev]++;
+           }});
+
+           if (window.severityChartInstance) {{
+               window.severityChartInstance.destroy();
+           }}
+
+           window.severityChartInstance = new Chart(document.getElementById("severityChart"), {{
+               type: "doughnut",
+               data: {{
+                   labels: ["Critical", "High", "Medium", "Low", "Info"],
+                   datasets: [{{
+                       data: [
+                           counts.critical,
+                           counts.high,
+                           counts.medium,
+                           counts.low,
+                           counts.info
+                       ]
+                   }}]
+               }}
+    }});
+
+}}
     }} catch (e) {{
 
     }}
