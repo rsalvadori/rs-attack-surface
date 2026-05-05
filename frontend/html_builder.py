@@ -13,7 +13,7 @@ def generate_html_dashboard(scan_result: dict) -> str:
 <meta charset="UTF-8">
 <title>RS Attack Surface</title>
 
-#inicio
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
