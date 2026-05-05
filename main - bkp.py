@@ -120,13 +120,11 @@ def calculate_scores(findings: list[dict]):
     if final_score >= 85:
         risk = "low"
     elif final_score >= 70:
-        risk = "low"
-    elif final_score >= 55:
         risk = "medium"
     elif final_score >= 40:
         risk = "high"
     else:
-        risk = "high"
+        risk = "critical"
 
     return final_score, risk, security_score, privacy_score
 
@@ -357,7 +355,43 @@ def run_nuclei_background(domain, json_path):
         with open(json_path, "r") as f:
             data = json.load(f)
 
-        data["nuclei_findings"] = findings
+        # 1. normaliza findings do nuclei pro mesmo padrão
+        normalized = []
+        for f in findings:
+            normalized.append({
+                "title": f.get("title"),
+                "severity": f.get("severity", "info").lower(),
+                "impact": f.get("evidence", "")
+            })
+
+# 2. injeta no dataset principal (SEM duplicar)
+        existing = data.get("findings", [])
+
+        def unique_key(f):
+            return (f.get("title"), f.get("severity"))
+
+        existing_keys = set(unique_key(f) for f in existing)
+
+        for f in normalized:
+            if unique_key(f) not in existing_keys:
+                existing.append(f)
+
+        data["findings"] = existing
+
+        # 3. REPROCESSA TUDO (ESSENCIAL)
+        score, risk, sec, priv = calculate_scores(existing)
+
+        data["score"] = score
+        data["risk"] = risk
+        data["security_score"] = sec
+        data["privacy_score"] = priv
+
+        data["top_findings"] = get_top_findings(existing)
+        data["severity_counts"] = count_severities(existing)
+        data["lgpd_findings_count"] = count_lgpd_findings(existing)
+
+        # 4. marca status
+        data["nuclei_findings"] = normalized
         data["nuclei_done"] = True
 
         with open(json_path, "w") as f:
