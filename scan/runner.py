@@ -2,7 +2,8 @@ import json
 import os
 
 from scan.lgpd_analyzer import analyze_lgpd
-from scan.nuclei import analyze_nuclei
+# analyze_nuclei removido — módulo scan.nuclei não existe.
+# O fluxo Nuclei atual roda via worker externo em run_nuclei_background() no main.py.
 
 
 REPORTS_DIR = "reports"

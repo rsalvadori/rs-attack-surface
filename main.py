@@ -9,15 +9,37 @@ import os
 import re
 import threading
 import json
+import logging
 
 import requests
 
+# ---------------------------------------------------------------------------
+# [FIX 1 & 2] Credenciais e URL da VM carregadas de variáveis de ambiente.
+# Crie um arquivo .env na raiz do projeto (nunca commite esse arquivo):
+#
+#   NUCLEI_WORKER_URL=http://SEU_IP:8000/scan
+#   NUCLEI_API_KEY=sua-chave-secreta
+#
+# Em produção, injete as variáveis pelo sistema de deploy (ex: Docker, systemd).
+# ---------------------------------------------------------------------------
+NUCLEI_WORKER_URL = os.environ.get("NUCLEI_WORKER_URL")
+NUCLEI_API_KEY = os.environ.get("NUCLEI_API_KEY")
+
+if not NUCLEI_WORKER_URL or not NUCLEI_API_KEY:
+    logging.warning(
+        "NUCLEI_WORKER_URL ou NUCLEI_API_KEY não configurados. "
+        "O scan Nuclei ficará desabilitado até que as variáveis sejam definidas."
+    )
+
+
 def run_nuclei_scan(domain: str):
+    if not NUCLEI_WORKER_URL or not NUCLEI_API_KEY:
+        raise RuntimeError("Nuclei worker não configurado (variáveis de ambiente ausentes).")
 
     resp = requests.get(
-        "http://163.176.240.125:8000/scan",
+        NUCLEI_WORKER_URL,
         params={"domain": domain},
-        headers={"x-api-key": "RS-SECRET-123"},
+        headers={"x-api-key": NUCLEI_API_KEY},
         timeout=120
     )
 
@@ -117,14 +139,10 @@ def calculate_scores(findings: list[dict]):
 
     final_score = int((security_score * 0.7) + (privacy_score * 0.3))
 
-    if final_score >= 85:
+    if final_score >= 80:
         risk = "low"
-    elif final_score >= 70:
-        risk = "low"
-    elif final_score >= 55:
+    elif final_score >= 50:
         risk = "medium"
-    elif final_score >= 40:
-        risk = "high"
     else:
         risk = "high"
 
@@ -225,7 +243,7 @@ def execute_scan(domain: str):
     # 🔥 ENRIQUECIMENTO HTTPX (dentro do seu fluxo)
     if httpx_data:
         status = httpx_data.get("status_code")
-        techs = httpx_data.get("tech", [])
+        techs = httpx_data.get("tech") or httpx_data.get("technologies") or []
         webserver = httpx_data.get("webserver")
 
         if status and status >= 400:
@@ -270,22 +288,8 @@ def execute_scan(domain: str):
             enriched.append(f)
     findings = enriched
 
-    #####
-    try:
-        nuclei_data = run_nuclei_scan(domain)
-        nuclei_findings = nuclei_data.get("findings", [])
-
-        # normaliza pro seu formato
-        for f in nuclei_findings:
-            findings.append({
-                "title": f.get("title"),
-                "severity": f.get("severity", "info"),
-                "impact": f.get("evidence", "")
-            })
-
-    except Exception:
-        pass
-
+    # Nuclei roda apenas em background via run_nuclei_background().
+    # run_nuclei_scan() é mantida para uso futuro, mas não chamada aqui.
 
     score, risk, sec, priv = calculate_scores(findings)
 
@@ -332,10 +336,13 @@ def run_nuclei_background(domain, json_path):
     print("NUCLEI BACKGROUND START:", domain, json_path)
 
     try:
+        if not NUCLEI_WORKER_URL or not NUCLEI_API_KEY:
+            raise RuntimeError("Nuclei worker não configurado (variáveis de ambiente ausentes).")
+
         resp = requests.get(
-            "http://163.176.240.125:8000/scan",
+            NUCLEI_WORKER_URL,
             params={"domain": domain},
-            headers={"x-api-key": "RS-SECRET-123"},
+            headers={"x-api-key": NUCLEI_API_KEY},
             timeout=120
         )
 
@@ -354,7 +361,7 @@ def run_nuclei_background(domain, json_path):
     try:
         print("NUCLEI JSON PATH:", json_path)
 
-        with open(json_path, "r") as f:
+        with open(json_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         # 1. normaliza findings do nuclei pro mesmo padrão
@@ -396,8 +403,8 @@ def run_nuclei_background(domain, json_path):
         data["nuclei_findings"] = normalized
         data["nuclei_done"] = True
 
-        with open(json_path, "w") as f:
-            json.dump(data, f)
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
 
         print("NUCLEI JSON UPDATED")
 
@@ -412,13 +419,23 @@ def run_nuclei_background(domain, json_path):
 
 @app.get("/report-json")
 def get_report_json(id: str):
-    domain_part = "_".join(id.split('_')[:-2])
-    path = f"reports/{domain_part}/{id}.json"
+    # [FIX 3] Valida o id para prevenir path traversal.
+    # Aceita apenas alfanuméricos, hífen e underscore.
+    if not re.fullmatch(r"[a-zA-Z0-9_\-]+", id):
+        raise HTTPException(status_code=400, detail="ID de relatório inválido.")
 
-    if not os.path.exists(path):
+    domain_part = "_".join(id.split('_')[:-2])
+    reports_base = os.path.realpath("reports")
+    resolved = os.path.realpath(os.path.join("reports", domain_part, f"{id}.json"))
+
+    # Garantia extra: o caminho resolvido deve estar dentro de reports/
+    if not resolved.startswith(reports_base + os.sep):
+        raise HTTPException(status_code=400, detail="Acesso negado.")
+
+    if not os.path.exists(resolved):
         raise HTTPException(status_code=404, detail="Not found")
 
-    with open(path) as f:
+    with open(resolved) as f:
         return json.load(f)
 
 
@@ -448,11 +465,11 @@ async def scan_report(request: Request):
 
     json_path = os.path.join(client_dir, f"{report_id}.json")
 
-    with open(json_path, "w") as f:
+    with open(json_path, "w", encoding="utf-8") as f:
         result["nuclei_done"] = False
         result["nuclei_findings"] = []
         result["report_id"] = report_id   # 👈 ESSENCIAL
-        json.dump(result, f)
+        json.dump(result, f, ensure_ascii=False)
 
     threading.Thread(
         target=run_nuclei_background,
